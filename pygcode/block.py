@@ -1,5 +1,6 @@
 import re
 from .words import iter_words, WORD_MAP
+from .gcodes import words_to_gcodes
 
 class Block(object):
     """GCode block (effectively any gcode file line that defines any <word><value>)"""
@@ -20,6 +21,7 @@ class Block(object):
         self.text = text
 
         self.words = list(iter_words(self.text))
+        #self.gcodes = list(words_to_gcodes(self.words))
 
     def __getattr__(self, k):
         if k in WORD_MAP:

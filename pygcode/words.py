@@ -46,8 +46,8 @@ WORD_MAP = {
     },
     # G-Codes
     'G': {
-        'class': str,
-        'value_regex': re.compile(r'^\d+(\.\d+)?'),
+        'class': float,
+        'value_regex': re.compile(r'^\d+(\.\d)?'),
         'description': "Address for preparatory commands",
     },
     # Tool Offsets
@@ -80,8 +80,8 @@ WORD_MAP = {
     },
     # Miscellaneous Function
     'M': {
-        'class': str,
-        'value_regex': re.compile(r'^\d+(\.\d+)?'),
+        'class': float,
+        'value_regex': re.compile(r'^\d+(\.\d)?'),
         'description': "Miscellaneous function",
     },
     # Line Number
@@ -261,6 +261,21 @@ class Word(object):
             letter=self.letter,
             value=self.value_str,
         )
+
+    def __repr__(self):
+        return "<{class_name}: {string}>".format(
+            class_name=self.__class__.__name__,
+            string=str(self),
+        )
+
+    def __eq__(self, other):
+        return (self.letter == other.letter) and (self.value == other.value)
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
+
+    def __hash__(self):
+        return hash((self.letter, self.value))
 
     # Value Properties
     @property

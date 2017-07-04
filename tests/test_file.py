@@ -16,5 +16,5 @@ class FileParseTest(unittest.TestCase):
         file = parse(self.FILENAME)
         self.assertEqual(len(file.lines), 26)
         # FIXME: just verifying content visually
-        for line in file.lines:
-            print(' '.join(["%s%s" % (w.letter, w.value_str) for w in line.block.words]))
+        #for line in file.lines:
+        #    print(' '.join(["%s%s" % (w.letter, w.value_str) for w in line.block.words]))
