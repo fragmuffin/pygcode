@@ -4,9 +4,11 @@ import six
 
 from .exceptions import GCodeBlockFormatError
 
-FLOAT_REGEX = re.compile(r'^-?\d+(\.\d+)?')
+FLOAT_REGEX = re.compile(r'^-?(\d+\.?\d*|\.\d+)') # testcase: ..tests.test_words.WordValueMatchTests.test_float
 INT_REGEX = re.compile(r'^-?\d+')
 POSITIVEINT_REGEX = re.compile(r'^\d+')
+CODE_REGEX = re.compile(r'^\d+(\.\d)?') # similar
+
 
 WORD_MAP = {
     # Descriptions copied from wikipedia:
@@ -47,7 +49,7 @@ WORD_MAP = {
     # G-Codes
     'G': {
         'class': float,
-        'value_regex': re.compile(r'^\d+(\.\d)?'),
+        'value_regex': CODE_REGEX,
         'description': "Address for preparatory commands",
     },
     # Tool Offsets
@@ -81,7 +83,7 @@ WORD_MAP = {
     # Miscellaneous Function
     'M': {
         'class': float,
-        'value_regex': re.compile(r'^\d+(\.\d)?'),
+        'value_regex': CODE_REGEX,
         'description': "Miscellaneous function",
     },
     # Line Number

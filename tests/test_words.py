@@ -40,3 +40,44 @@ class WordIterTests(unittest.TestCase):
         self.assertEqual([w[3].letter, w[3].value], ['I', -0.11])
         self.assertEqual([w[4].letter, w[4].value], ['J', -1.26])
         self.assertEqual([w[5].letter, w[5].value], ['F', 70])
+
+
+class WordValueMatchTests(unittest.TestCase):
+
+    def regex_assertions(self, regex, positive_list, negative_list):
+        # Assert all elements of positive_list match regex
+        for (value_str, expected_match) in positive_list:
+            match = regex.search(value_str)
+            self.assertIsNotNone(match, "failed to match '%s'" % value_str)
+            self.assertEqual(match.group(), expected_match)
+
+        # Asesrt all elements of negative_list do not match regex
+        for value_str in negative_list:
+            match = regex.search(value_str)
+            self.assertIsNone(match, "matched for '%s'" % value_str)
+
+    def test_float(self):
+        self.regex_assertions(
+            regex=words.FLOAT_REGEX,
+            positive_list=[
+                ('1.2', '1.2'), ('1', '1'), ('200', '200'), ('0092', '0092'),
+                ('1.', '1.'), ('.2', '.2'), ('-1.234', '-1.234'),
+                ('-1.', '-1.'), ('-.289', '-.289'),
+                # error cases (only detectable in gcode context)
+                ('1.2e3', '1.2'),
+            ],
+            negative_list=['.', ' 1.2']
+        )
+
+    def test_code(self):
+        self.regex_assertions(
+            regex=words.CODE_REGEX,
+            positive_list=[
+                ('1.2', '1.2'), ('1', '1'), ('10', '10'),
+                ('02', '02'), ('02.3', '02.3'),
+                ('1.', '1'), ('03 ', '03'),
+                # error cases (only detectable in gcode context)
+                ('30.12', '30.1'),
+            ],
+            negative_list=['.2', '.', ' 2']
+        )
