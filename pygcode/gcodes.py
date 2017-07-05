@@ -2,13 +2,80 @@ from collections import defaultdict
 
 from .words import Word
 
+# Terminology of a "G-Code"
+#   For the purposes of this library, so-called "G" codes do not necessarily
+#   use the letter "G" in their word; other letters include M, F, S, and T
+# Why?
+#   I've seen documentation thrown around using the term "gcode" interchangably
+#   for any word that triggers an action, or mode change. The fact that the
+#   entire language is called "gcode" obfuscates any other convention.
+#   Considering it's much easier for me to call everything GCode, I'm taking
+#   the lazy route, so sue me (but seriously, please don't sue me).
+#
+# Modality groups
+#   Modal GCodes:
+#       A machine's "mode" can be changed by any gcode with a modal_group.
+#       This state is retained by the machine in the blocks to follow until
+#       the "mode" is revoked, or changed.
+#       A typical example of this is units:
+#           G20
+#       this will change the machine's "mode" to treat all positions as
+#       millimeters; G20 does not have to be on every line, thus the machine's
+#       "mode" is in millimeters for that, and every block after it until G21
+#       is specified (changing units to inches).
+#
+#   Modal Groups:
+#       Only one mode of each modal group can be active. That is to say, a
+#       modal g-code can only change the sate of a previously set mode if
+#       they're in the same group.
+#       For example:
+#           G20 (mm), and G21 (inches) are in group 6
+#           G1 (linear movement), and G2 (arc movement) are in group 1
+#       A machine can't use mm and inches at the same time, just as it can't
+#       move in a straight line, and move in an arc simultaneously.
+#
+#   There are 15 groups:
+#       ref: http://linuxcnc.org/docs/html/gcode/overview.html#_modal_groups
+#
+#                 Table 5. G-Code Modal Groups
+#       MODAL GROUP MEANING                     MEMBER WORDS
+#       Non-modal codes (Group 0)               G4, G10 G28, G30, G53 G92, G92.1, G92.2, G92.3,
+#       Motion (Group 1)                        G0, G1, G2, G3, G33, G38.x, G73, G76, G80, G81
+#                                               G82, G83, G84, G85, G86, G87, G88,G89
+#       Plane selection (Group 2)               G17, G18, G19, G17.1, G18.1, G19.1
+#       Distance Mode (Group 3)                 G90, G91
+#       Arc IJK Distance Mode (Group 4)         G90.1, G91.1
+#       Feed Rate Mode (Group 5)                G93, G94, G95
+#       Units (Group 6)                         G20, G21
+#       Cutter Diameter Compensation (Group 7)  G40, G41, G42, G41.1, G42.1
+#       Tool Length Offset (Group 8)            G43, G43.1, G49
+#       Canned Cycles Return Mode (Group 10)    G98, G99
+#       Coordinate System (Group 12)            G54, G55, G56, G57, G58, G59,
+#                                               G59.1, G59.2, G59.3
+#       Control Mode (Group 13)                 G61, G61.1, G64
+#       Spindle Speed Mode (Group 14)           G96, G97
+#       Lathe Diameter Mode (Group 15)          G7, G8
+#
+#                 Table 6. M-Code Modal Groups
+#       MODAL GROUP MEANING                     MEMBER WORDS
+#       Stopping (Group 4)                      M0, M1, M2, M30, M60
+#       Spindle (Group 7)                       M3, M4, M5
+#       Coolant (Group 8)                       (M7 M8 can both be on), M9
+#       Override Switches (Group 9)             M48, M49
+#       User Defined (Group 10)                 M100-M199
+#
+
 
 class GCode(object):
     # Defining Word
     word_key = None # Word instance to use in lookup
     word_matches = None # function (secondary)
+
     # Parameters associated to this gcode
     param_letters = set()
+
+    # Modal Group
+    modal_group = None
 
     def __init__(self, word, *params):
         assert isinstance(word, Word), "invalid gcode word %r" % code_word
@@ -75,6 +142,7 @@ class GCode(object):
 
 class GCodeMotion(GCode):
     param_letters = set('XYZABCUVW')
+    modal_group = 1
 
 
 class GCodeRapidMove(GCodeMotion):
@@ -106,6 +174,7 @@ class GCodeDwell(GCodeMotion):
     """G4: Dwell"""
     param_letters = GCodeMotion.param_letters | set('P')
     word_key = Word('G', 4)
+    modal_group = None  # one of the few motion commands that isn't modal
 
 
 class GCodeCublcSpline(GCodeMotion):
@@ -168,7 +237,7 @@ class GCodeCancelCannedCycle(GCodeMotion):
 
 class GCodeCannedCycle(GCode):
     param_letters = set('XYZUVW')
-
+    modal_group = 1
 
 class GCodeDrillingCycle(GCodeCannedCycle):
     """G81: Drilling Cycle"""
@@ -226,31 +295,36 @@ class GCodeDistanceMode(GCode):
 class GCodeAbsoluteDistanceMode(GCodeDistanceMode):
     """G90: Absolute Distance Mode"""
     word_key = Word('G', 90)
-
+    modal_group = 3
 
 class GCodeIncrementalDistanceMode(GCodeDistanceMode):
     """G91: Incremental Distance Mode"""
     word_key = Word('G', 91)
+    modal_group = 3
 
 
 class GCodeAbsoluteArcDistanceMode(GCodeDistanceMode):
     """G90.1: Absolute Distance Mode for Arc IJK Parameters"""
     word_key = Word('G', 90.1)
+    modal_group = 4
 
 
 class GCodeIncrementalArcDistanceMode(GCodeDistanceMode):
     """G91.1: Incremental Distance Mode for Arc IJK Parameters"""
     word_key = Word('G', 91.1)
+    modal_group = 4
 
 
 class GCodeLatheDiameterMode(GCodeDistanceMode):
     """G7: Lathe Diameter Mode"""
     word_key = Word('G', 7)
+    modal_group = 15
 
 
 class GCodeLatheRadiusMode(GCodeDistanceMode):
     """G8: Lathe Radius Mode"""
     word_key = Word('G', 8)
+    modal_group = 15
 
 
 # ======================= Feed Rate Mode =======================
@@ -258,7 +332,7 @@ class GCodeLatheRadiusMode(GCodeDistanceMode):
 # G93, G94, G95                         Feed Rate Mode
 
 class GCodeFeedRateMode(GCode):
-    pass
+    modal_group = 5
 
 
 class GCodeInverseTimeMode(GCodeFeedRateMode):
@@ -290,18 +364,20 @@ class GCodeStartSpindleCW(GCodeSpindle):
     """M3: Start Spindle Clockwise"""
     param_letters = set('S')
     word_key = Word('M', 3)
-
+    modal_group = 7
 
 class GCodeStartSpindleCCW(GCodeSpindle):
     """M4: Start Spindle Counter-Clockwise"""
     param_letters = set('S')
     word_key = Word('M', 4)
+    modal_group = 7
 
 
 class GCodeStopSpindle(GCodeSpindle):
     """M5: Stop Spindle"""
     param_letters = set('S')
     word_key = Word('M', 5)
+    modal_group = 7
 
 
 class GCodeOrientSpindle(GCodeSpindle):
@@ -313,12 +389,14 @@ class GCodeSpindleConstantSurfaceSpeedMode(GCodeSpindle):
     """G96: Spindle Constant Surface Speed"""
     param_letters = set('DS')
     word_key = Word('G', 96)
+    modal_group = 14
 
 
 class GCodeSpindleRPMMode(GCodeSpindle):
     """G97: Spindle RPM Speed"""
     param_letters = set('D')
     word_key = Word('G', 97)
+    modal_group = 14
 
 
 
@@ -327,7 +405,7 @@ class GCodeSpindleRPMMode(GCodeSpindle):
 # M7, M8, M9                            Coolant Control
 
 class GCodeCoolant(GCode):
-    pass
+    modal_group = 8
 
 
 class GCodeCoolantMistOn(GCodeCoolant):
@@ -353,7 +431,7 @@ class GCodeCoolantOff(GCodeCoolant):
 # G49                                   Cancel Tool Length Compensation
 
 class GCodeToolLength(GCode):
-    pass
+    modal_group = 8
 
 
 class GCodeToolLengthOffset(GCodeToolLength):
@@ -385,7 +463,7 @@ class GCodeCancelToolLengthOffset(GCodeToolLength):
 # M60                                   Pallet Change Pause
 
 class GCodeProgramControl(GCode):
-    pass
+    modal_group = 4
 
 
 class GCodePauseProgram(GCodeProgramControl):
@@ -418,11 +496,13 @@ class GCodePalletChangePause(GCodeProgramControl):
 # G20, G21                              Units
 
 class GCodeUnit(GCode):
-    pass
+    modal_group = 6
+
 
 class GCodeUseInches(GCodeUnit):
     """G20: use inches for length units"""
     word_key = Word('G', 20)
+
 
 class GCodeUseMillimeters(GCodeUnit):
     """G21: use millimeters for length units"""
@@ -435,7 +515,7 @@ class GCodeUseMillimeters(GCodeUnit):
 # G17 - G19.1                           Plane Select
 
 class GCodePlaneSelect(GCode):
-    pass
+    modal_group = 2
 
 
 class GCodeSelectZYPlane(GCodePlaneSelect):
@@ -475,7 +555,7 @@ class GCodeSelectVWPlane(GCodePlaneSelect):
 # G41.1, G42.1      D L                 Dynamic Cutter Compensation
 
 class GCodeCutterRadiusComp(GCode):
-    pass
+    modal_group = 7
 
 
 class GCodeCutterRadiusCompOff(GCodeCutterRadiusComp):
@@ -513,7 +593,7 @@ class GCodeDynamicCutterCompRight(GCodeCutterRadiusComp):
 # G64               P Q                 Path Blending
 
 class GCodePathControlMode(GCode):
-    pass
+    modal_group = 13
 
 
 class GCodeExactPathMode(GCodePathControlMode):
@@ -537,7 +617,7 @@ class GCodePathBlendingMode(GCodePathControlMode):
 # G98                                   Canned Cycle Return Level
 
 class GCodeCannedReturnMode(GCode):
-    pass
+    modal_group = 10
 
 
 class GCodeCannedCycleReturnLevel(GCodeCannedReturnMode):
@@ -566,12 +646,21 @@ class GCodeFeedRate(GCodeOtherModal):
     @classmethod
     def word_matches(cls, w):
         return w.letter == 'F'
+    # Modal Group n/a:
+    #   although this sets the machine's state, there are no other codes to
+    #   group with this one, so although it's modal, it has no group.
+    #modal_group = n/a
+
 
 class GCodeSpindleSpeed(GCodeOtherModal):
     """S: Set Spindle Speed"""
     @classmethod
     def word_matches(cls, w):
         return w.letter == 'S'
+    # Modal Group n/a:
+    #   although this sets the machine's state, there are no other codes to
+    #   group with this one, so although it's modal, it has no group.
+    #modal_group = n/a
 
 
 class GCodeSelectTool(GCodeOtherModal):
@@ -579,16 +668,22 @@ class GCodeSelectTool(GCodeOtherModal):
     @classmethod
     def word_matches(cls, w):
         return w.letter == 'T'
+    # Modal Group n/a:
+    #   although this sets the machine's state, there are no other codes to
+    #   group with this one, so although it's modal, it has no group.
+    #modal_group = n/a
 
 
 class GCodeSpeedAndFeedOverrideOn(GCodeOtherModal):
     """M48: Speed and Feed Override Control On"""
     word_key = Word('M', 48)
+    modal_group = 9
 
 
 class GCodeSpeedAndFeedOverrideOff(GCodeOtherModal):
     """M49: Speed and Feed Override Control Off"""
     word_key = Word('M', 49)
+    modal_group = 9
 
 
 class GCodeFeedOverride(GCodeOtherModal):
@@ -630,6 +725,7 @@ class GCodeSelectCoordinateSystem(GCodeOtherModal):
     @classmethod
     def word_matches(cls, w):
         return (w.letter == 'G') and (w.value in [54, 55, 56, 57, 58, 59, 59.1, 59.2, 59.3])
+    modal_group = 12
 
 
 # ======================= Flow-control Codes =======================
