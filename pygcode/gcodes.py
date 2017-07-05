@@ -1,3 +1,4 @@
+from collections import defaultdict
 
 from .words import Word
 
@@ -7,10 +8,54 @@ class GCode(object):
     word_key = None # Word instance to use in lookup
     word_matches = None # function (secondary)
     # Parameters associated to this gcode
-    param_words = set()
+    param_letters = set()
 
-    def __init__(self):
-        self.params = None # TODO
+    def __init__(self, word, *params):
+        assert isinstance(word, Word), "invalid gcode word %r" % code_word
+        self.word = word
+        self.params = {}
+
+        # Add Given Parameters
+        for param in params:
+            self.add_parameter(param)
+
+    def __repr__(self):
+        return "<{class_name}: {gcode}{{{word_list}}}>".format(
+            class_name=self.__class__.__name__,
+            gcode=self.word,
+            word_list=', '.join([
+                "{}".format(self.params[k])
+                for k in sorted(self.params.keys())
+            ]),
+        )
+
+    def __str__(self):
+        """String representation of gcode, as it would be seen in a .gcode file"""
+        return "{gcode} {parameters}".format(
+            gcode=self.word,
+            parameters=' '.join([
+                "{}".format(self.params[k])
+                for k in sorted(self.params.keys())
+            ]),
+        )
+
+    def add_parameter(self, word):
+        assert isinstance(word, Word), "invalid parameter class: %r" % word
+        assert word.letter in self.param_letters, "invalid parameter for %s: %s" % (self.__class__.__name__, str(word))
+        assert word.letter not in self.params, "parameter defined twice: %s -> %s" % (self.params[word.letter], word)
+        self.params[word.letter] = word
+
+    def __getattr__(self, key):
+        if key in self.param_letters:
+            if key in self.params:
+                return self.params[key].value
+            else:
+                return None # parameter is valid for GCode, but undefined
+
+        raise AttributeError("'{cls}' object has no attribute '{key}'".format(
+            cls=self.__class__.__name__,
+            key=key
+        ))
 
 
 # ======================= Motion =======================
@@ -29,7 +74,7 @@ class GCode(object):
 # G80                           Cancel Canned Cycle
 
 class GCodeMotion(GCode):
-    param_words = set('XYZABCUVW')
+    param_letters = set('XYZABCUVW')
 
 
 class GCodeRapidMove(GCodeMotion):
@@ -44,7 +89,7 @@ class GCodeLinearMove(GCodeMotion):
 
 class GCodeArcMove(GCodeMotion):
     """Arc Move"""
-    param_words = GCodeMotion.param_words | set('IJKRP')
+    param_letters = GCodeMotion.param_letters | set('IJKRP')
 
 
 class GCodeArcMoveCW(GCodeArcMove):
@@ -59,25 +104,25 @@ class GCodeArcMoveCCW(GCodeArcMove):
 
 class GCodeDwell(GCodeMotion):
     """G4: Dwell"""
-    param_words = GCodeMotion.param_words | set('P')
+    param_letters = GCodeMotion.param_letters | set('P')
     word_key = Word('G', 4)
 
 
 class GCodeCublcSpline(GCodeMotion):
     """G5: Cubic Spline"""
-    param_words = GCodeMotion.param_words | set('IJPQ')
+    param_letters = GCodeMotion.param_letters | set('IJPQ')
     word_key = Word('G', 5)
 
 
 class GCodeQuadraticSpline(GCodeMotion):
     """G5.1: Quadratic Spline"""
-    param_words = GCodeMotion.param_words | set('IJ')
+    param_letters = GCodeMotion.param_letters | set('IJ')
     word_key = Word('G', 5.1)
 
 
 class GCodeNURBS(GCodeMotion):
     """G5.2: Non-uniform rational basis spline (NURBS)"""
-    param_words = GCodeMotion.param_words | set('PL')
+    param_letters = GCodeMotion.param_letters | set('PL')
     word_key = Word('G', 5.2)
 
 
@@ -95,13 +140,13 @@ class GCodeStraightProbe(GCodeMotion):
 
 class GCodeSpindleSyncMotion(GCodeMotion):
     """G33: Spindle Synchronized Motion"""
-    param_words = GCodeMotion.param_words | set('K')
+    param_letters = GCodeMotion.param_letters | set('K')
     word_key = Word('G', 33)
 
 
 class GCodeRigidTapping(GCodeMotion):
     """G33.1: Rigid Tapping"""
-    param_words = GCodeMotion.param_words | set('K')
+    param_letters = GCodeMotion.param_letters | set('K')
     word_key = Word('G', 33.1)
 
 
@@ -122,48 +167,48 @@ class GCodeCancelCannedCycle(GCodeMotion):
 # G76               P Z I J R K Q H L E Threading Cycle
 
 class GCodeCannedCycle(GCode):
-    param_words = set('XYZUVW')
+    param_letters = set('XYZUVW')
 
 
 class GCodeDrillingCycle(GCodeCannedCycle):
     """G81: Drilling Cycle"""
-    param_words = GCodeCannedCycle.param_words | set('RLP')
+    param_letters = GCodeCannedCycle.param_letters | set('RLP')
     word_key = Word('G', 81)
 
 
 class GCodeDrillingCycleDwell(GCodeCannedCycle):
     """G82: Drilling Cycle, Dwell"""
-    param_words = GCodeCannedCycle.param_words | set('RLP')
+    param_letters = GCodeCannedCycle.param_letters | set('RLP')
     word_key = Word('G', 82)
 
 
 class GCodeDrillingCyclePeck(GCodeCannedCycle):
     """G83: Drilling Cycle, Peck"""
-    param_words = GCodeCannedCycle.param_words | set('RLQ')
+    param_letters = GCodeCannedCycle.param_letters | set('RLQ')
     word_key = Word('G', 83)
 
 
 class GCodeDrillingCycleChipBreaking(GCodeCannedCycle):
     """G73: Drilling Cycle, ChipBreaking"""
-    param_words = GCodeCannedCycle.param_words | set('RLQ')
+    param_letters = GCodeCannedCycle.param_letters | set('RLQ')
     word_key = Word('G', 73)
 
 
 class GCodeBoringCycleFeedOut(GCodeCannedCycle):
     """G85: Boring Cycle, Feed Out"""
-    param_words = GCodeCannedCycle.param_words | set('RLP')
+    param_letters = GCodeCannedCycle.param_letters | set('RLP')
     word_key = Word('G', 85)
 
 
 class GCodeBoringCycleDwellFeedOut(GCodeCannedCycle):
     """G89: Boring Cycle, Dwell, Feed Out"""
-    param_words = GCodeCannedCycle.param_words | set('RLP')
+    param_letters = GCodeCannedCycle.param_letters | set('RLP')
     word_key = Word('G', 89)
 
 
 class GCodeThreadingCycle(GCodeCannedCycle):
     """G76: Threading Cycle"""
-    param_words = GCodeCannedCycle.param_words | set('PZIJRKQHLE')
+    param_letters = GCodeCannedCycle.param_letters | set('PZIJRKQHLE')
     word_key = Word('G', 76)
 
 
@@ -243,19 +288,19 @@ class GCodeSpindle(GCode):
 
 class GCodeStartSpindleCW(GCodeSpindle):
     """M3: Start Spindle Clockwise"""
-    param_words = set('S')
+    param_letters = set('S')
     word_key = Word('M', 3)
 
 
 class GCodeStartSpindleCCW(GCodeSpindle):
     """M4: Start Spindle Counter-Clockwise"""
-    param_words = set('S')
+    param_letters = set('S')
     word_key = Word('M', 4)
 
 
 class GCodeStopSpindle(GCodeSpindle):
     """M5: Stop Spindle"""
-    param_words = set('S')
+    param_letters = set('S')
     word_key = Word('M', 5)
 
 
@@ -266,13 +311,13 @@ class GCodeOrientSpindle(GCodeSpindle):
 
 class GCodeSpindleConstantSurfaceSpeedMode(GCodeSpindle):
     """G96: Spindle Constant Surface Speed"""
-    param_words = set('DS')
+    param_letters = set('DS')
     word_key = Word('G', 96)
 
 
 class GCodeSpindleRPMMode(GCodeSpindle):
     """G97: Spindle RPM Speed"""
-    param_words = set('D')
+    param_letters = set('D')
     word_key = Word('G', 97)
 
 
@@ -313,7 +358,7 @@ class GCodeToolLength(GCode):
 
 class GCodeToolLengthOffset(GCodeToolLength):
     """G43: Tool Length Offset"""
-    param_words = set('H')
+    param_letters = set('H')
     word_key = Word('G', 43)
 
 
@@ -324,7 +369,7 @@ class GCodeDynamicToolLengthOffset(GCodeToolLength):
 
 class GCodeAddToolLengthOffset(GCodeToolLength):
     """G43.2: Appkly Additional Tool Length Offset"""
-    param_words = set('H')
+    param_letters = set('H')
     word_key = Word('G', 43.2)
 
 
@@ -440,25 +485,25 @@ class GCodeCutterRadiusCompOff(GCodeCutterRadiusComp):
 
 class GCodeCutterCompLeft(GCodeCutterRadiusComp):
     """G41: Cutter Radius Compensation (left)"""
-    param_words = set('D')
+    param_letters = set('D')
     word_key = Word('G', 41)
 
 
 class GCodeCutterCompRight(GCodeCutterRadiusComp):
     """G42: Cutter Radius Compensation (right)"""
-    param_words = set('D')
+    param_letters = set('D')
     word_key = Word('G', 42)
 
 
 class GCodeDynamicCutterCompLeft(GCodeCutterRadiusComp):
     """G41.1: Dynamic Cutter Radius Compensation (left)"""
-    param_words = set('DL')
+    param_letters = set('DL')
     word_key = Word('G', 41.1)
 
 
 class GCodeDynamicCutterCompRight(GCodeCutterRadiusComp):
     """G42.1: Dynamic Cutter Radius Compensation (right)"""
-    param_words = set('DL')
+    param_letters = set('DL')
     word_key = Word('G', 42.1)
 
 
@@ -483,7 +528,7 @@ class GCodeExactStopMode(GCodePathControlMode):
 
 class GCodePathBlendingMode(GCodePathControlMode):
     """G64: Path Blending"""
-    param_words = set('PQ')
+    param_letters = set('PQ')
     word_key = Word('G', 64)
 
 
@@ -548,25 +593,25 @@ class GCodeSpeedAndFeedOverrideOff(GCodeOtherModal):
 
 class GCodeFeedOverride(GCodeOtherModal):
     """M50: Feed Override Control"""
-    param_words = set('P')
+    param_letters = set('P')
     word_key = Word('M', 50)
 
 
 class GCodeSpindleSpeedOverride(GCodeOtherModal):
     """M51: Spindle Speed Override Control"""
-    param_words = set('P')
+    param_letters = set('P')
     word_key = Word('M', 51)
 
 
 class GCodeAdaptiveFeed(GCodeOtherModal):
     """M52: Adaptive Feed Control"""
-    param_words = set('P')
+    param_letters = set('P')
     word_key = Word('M', 52)
 
 
 class GCodeFeedStop(GCodeOtherModal):
     """M53: Feed Stop Control"""
-    param_words = set('P')
+    param_letters = set('P')
     word_key = Word('M', 53)
 
 
@@ -614,7 +659,7 @@ class GCodeIO(GCode):
 
 class GCodeDigitalOutput(GCodeIO):
     """Digital Output Control"""
-    param_words = set('P')
+    param_letters = set('P')
 
 
 class GCodeDigitalOutputOnSyncd(GCodeDigitalOutput):
@@ -639,13 +684,13 @@ class GCodeDigitalOutputOff(GCodeDigitalOutput):
 
 class GCodeWaitOnInput(GCodeIO):
     """M66: Wait on Input"""
-    param_words = set('PELQ')
+    param_letters = set('PELQ')
     word_key = Word('M', 66)
 
 
 class GCodeAnalogOutput(GCodeIO):
     """Analog Output"""
-    param_words = set('T')
+    param_letters = set('T')
 
 
 class GCodeAnalogOutputSyncd(GCodeAnalogOutput):
@@ -681,19 +726,19 @@ class GCodeNonModal(GCode):
 
 class GCodeToolChange(GCodeNonModal):
     """M6: Tool Change"""
-    param_words = set('T')
+    param_letters = set('T')
     word_key = Word('M', 6)
 
 
 class GCodeToolSetCurrent(GCodeNonModal):
     """M61: Set Current Tool"""
-    param_words = set('Q')
+    param_letters = set('Q')
     word_key = Word('M', 61)
 
 
 class GCodeSet(GCodeNonModal):
     """G10: Set stuff"""
-    param_words = set('LPQR')
+    param_letters = set('LPQR')
     word_key = Word('G', 10)
 
 
@@ -736,7 +781,7 @@ class GCodeRestoreCoordSystemOffset(GCodeNonModal):
 class GCodeUserDefined(GCodeNonModal):
     """M101-M199: User Defined Commands"""
     # To create user g-codes, inherit from this class
-    param_words = set('PQ')
+    param_letters = set('PQ')
     #@classmethod
     #def word_matches(cls, w):
     #    return (w.letter == 'M') and (101 <= w.value <= 199)
@@ -778,15 +823,15 @@ def _gcode_class_infostr(base_class=GCode):
         )
     return info_str
 
+
 # ======================= GCode Word Mapping =======================
 _gcode_maps_created = False  # only set when the below values are populated
 _gcode_word_map = {} # of the form: {Word('G', 0): GCodeRapidMove, ... }
 _gcode_function_list = [] # of the form: [(lambda w: w.letter == 'F', GCodeFeedRate), ... ]
 
-def _build_maps():
-    """
-    Populate _gcode_word_map and _gcode_function_list
-    """
+
+def build_maps():
+    """Populate _gcode_word_map and _gcode_function_list"""
     # Ensure lists are clear
     global _gcode_word_map
     global _gcode_function_list
@@ -806,19 +851,91 @@ def _build_maps():
     global _gcode_maps_created
     _gcode_maps_created = True
 
+
+def word_gcode_class(word, exhaustive=False):
+    """
+    Map word to corresponding GCode class
+    :param word: Word instance
+    :param exhausitve: if True, all words are tested; not just 'GMFST'
+    :return: class inheriting GCode
+    """
+
+    if _gcode_maps_created is False:
+        build_maps()
+
+    # quickly eliminate parameters
+    if (not exhaustive) and (word.letter not in 'GMFST'):
+        return None
+
+    # by Word Map (faster)
+    if word in _gcode_word_map:
+        return _gcode_word_map[word]
+
+    # by Function List (slower, so checked last)
+    for (match_function, gcode_class) in _gcode_function_list:
+        if match_function(word):
+            return gcode_class
+
+    return None
+
+
 def words_to_gcodes(words):
     """
     Group words into g-codes (includes both G & M codes)
     :param words: list of Word instances
-    :return: list containing [<GCode>, <GCode>, ..., list(<words not used in a gcode>)]
+    :return: tuple([<GCode>, <GCode>, ...], list(<unused words>))
     """
 
-    if _gcode_maps_created is False:
-        _build_maps()
+    gcodes = []
+    # Lines to consider
+    # Conflicts with non G|M codes (ie: S|F|T)
+    #   Spindle Control:
+    #       - S1000
+    #       - M3 S2000
+    #   Tool Change:
+    #       - T2
+    #       - M6 T1
+    #
+    # Conclusion: words are parameters first, gcodes second
 
-    # First determine which words are GCodes
-    # TODO: next up...
+    # First determine which words are GCode candidates
+    word_info_list = [
+        {
+            'index': i, # for internal referencing
+            'word': word,
+            'gcode_class': word_gcode_class(word), # if not None, word is a candidate
+            'param_to_index': None,
+        }
+        for (i, word) in enumerate(words)
+    ]
 
-    unassigned = []
-    #sdrow = list(reversed(words))
-    #for (i, word) in reversed(enumerate(words)):
+    # Link parameters to candidates
+    # note: gcode candidates may be valid parameters... therefore
+    # Also eliminate candidates that are parameters for earlier gcode candidates
+    for word_info in word_info_list:
+        if word_info['gcode_class'] is None:
+            continue # not a gcode candidate, so cannot have parameters
+        # which of the words following this gcode candidate are a valid parameter
+        for param_info in word_info_list[word_info['index'] + 1:]:
+            if param_info['word'].letter in word_info['gcode_class'].param_letters:
+                param_info['param_to_index'] = word_info['index']
+                param_info['gcode_class'] = None # no longer a valid candidate
+
+    # Map parameters
+    parameter_map = defaultdict(list) # {<gcode word index>: [<parameter words>], ... }
+    for word_info in word_info_list:
+        if word_info['gcode_class']:
+            continue # will form a gcode, so must not also be a parameter
+        parameter_map[word_info['param_to_index']].append(word_info['word'])
+
+    # Create gcode instances
+    for word_info in word_info_list:
+        if word_info['gcode_class'] is None:
+            continue # not a gcode candidate
+        gcode = word_info['gcode_class'](
+            word_info['word'],
+            *parameter_map[word_info['index']] # gcode parameters
+        )
+        gcodes.append(gcode)
+
+    return (gcodes, parameter_map[None])

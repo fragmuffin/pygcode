@@ -11,9 +11,11 @@ class MachineState(object):
 
         self.time = 0
 
-class Machine(object):
-    """"""
-    def __init__(self, **kwargs):
+
+
+class AbstractMachine(object):
+    """Basis for a real / virtualized machine to process gcode"""
+    def __init__(self, *args, **kwargs):
         self.axes = kwargs.get('axes', ('x', 'y', 'z'))
         self.max_rate = kwargs.get('max_rate', {
             'x': 500, # mm/min
@@ -30,6 +32,14 @@ class Machine(object):
 
         # initialize
         self.state = MachineState(self.axes)
+
+        # machine-specific initialization
+        self.machine_init(*args, **kwargs)
+
+    def machine_init(self, *args, **kwargs):
+        # Executed last in instances' __init__ call.
+        # Parameters are identical to that of __init__
+        pass
 
     def process_line(self, line):
         """Change machine's state based on the given gcode line"""
