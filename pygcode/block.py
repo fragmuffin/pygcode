@@ -21,7 +21,32 @@ class Block(object):
         self.text = text
 
         self.words = list(iter_words(self.text))
-        self.gcodes = list(words_to_gcodes(self.words))
+        (self.gcodes, self.modal_params) = words_to_gcodes(self.words)
+
+        self._assert_gcodes()
+
+        # TODO: gcode verification
+        #   - gcodes in the same modal_group raises exception
+
+    def _assert_gcodes(self):
+        modal_groups = set()
+        code_words = set()
+        for gc in self.gcodes:
+            # Assert all gcodes are not repeated in the same block
+            if gc.word in code_words:
+                raise AssertionError("%s cannot be in the same block" % ([
+                    x for x in self.gcodes
+                    if x.modal_group == gc.modal_group
+                ]))
+            code_words.add(gc.word)
+            # Assert all gcodes are from different modal groups
+            if gc.modal_group is not None:
+                if gc.modal_group in modal_groups:
+                    raise AssertionError("%s cannot be in the same block" % ([
+                        x for x in self.gcodes
+                        if x.modal_group == gc.modal_group
+                    ]))
+                modal_groups.add(gc.modal_group)
 
     def __getattr__(self, k):
         if k in WORD_MAP:

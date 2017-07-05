@@ -44,3 +44,27 @@ class AbstractMachine(object):
     def process_line(self, line):
         """Change machine's state based on the given gcode line"""
         pass # TODO
+
+
+
+
+"""
+class Axes(object):
+    pass
+
+class MyMachineState(MachineState):
+    axes_state_class = AxesState
+    pass
+
+class MyMachine(AbstractMachine):
+    available_axes = set('xyz')
+    state_class = MyMachineState
+
+
+m = MyMachine(
+    state=MyMachineState(
+        absolute_position=
+    ),
+)
+
+"""
