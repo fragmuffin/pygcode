@@ -4,7 +4,6 @@ import six
 
 from .exceptions import GCodeBlockFormatError
 
-
 REGEX_FLOAT = re.compile(r'^-?(\d+\.?\d*|\.\d+)') # testcase: ..tests.test_words.WordValueMatchTests.test_float
 REGEX_INT = re.compile(r'^-?\d+')
 REGEX_POSITIVEINT = re.compile(r'^\d+')
@@ -201,7 +200,15 @@ WORD_MAP = {
 
 
 class Word(object):
-    def __init__(self, letter, value):
+    def __init__(self, *args):
+        assert len(args) in [1, 2], "input arguments either: (letter, value) or (word_str)"
+        if len(args) == 2:
+            (letter, value) = args
+        else:
+            word_str = args[0]
+            letter = word_str[0] # first letter
+            value = word_str[1:] # rest of string
+
         self.letter = letter.upper()
 
         self._value_str = None

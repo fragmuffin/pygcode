@@ -1,6 +1,6 @@
 from .line import Line
 
-from .machine import AbstractMachine
+#from .machine import AbstractMachine
 
 class GCodeFile(object):
     def __init__(self, filename=None):
@@ -13,10 +13,6 @@ class GCodeFile(object):
         assert isinstance(line, Line), "invalid line type"
         self.lines.append(line)
 
-
-class GCodeWriterMachine(AbstractMachine):
-    def machine_init(self, *args, **kwargs):
-        pass
 
 def parse(filename):
     # FIXME: should be an iterator, and also not terrible

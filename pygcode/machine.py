@@ -1,70 +1,24 @@
 
+from collections import defaultdict
 
-class MachineState(object):
-    def __init__(self, axes=('x', 'y', 'z')):
-        self.axes = axes
+from .gcodes import MODAL_GROUP_MAP, GCode
+from .line import Line
 
-        # initialize
-        self.position = {}
-        for axis in self.axes:
-            self.position[axis] = 0
-
-        self.time = 0
+from .machinestate import MachineState
 
 
+class Machine(object):
+    def __init__(self):
+        self.state = MachineState()
 
-class AbstractMachine(object):
-    """Basis for a real / virtualized machine to process gcode"""
-    def __init__(self, *args, **kwargs):
-        self.axes = kwargs.get('axes', ('x', 'y', 'z'))
-        self.max_rate = kwargs.get('max_rate', {
-            'x': 500, # mm/min
-            'y': 500, # mm/min
-            'z': 500, # mm/min
-        })
-        self.max_travel = kwargs.get('max_travel', {
-            'x': 200, # mm
-            'y': 200, # mm
-            'z': 200, # mm
-        })
-        self.max_spindle_speed = kwargs.get('max_spindle_speed', 1000) # rpm
-        self.min_spindle_speed = kwargs.get('max_spindle_speed', 0) # rpm
+    def process(self, *gcode_list, **kwargs):
+        """
+        Process gcodes
+        :param gcode_list: list of GCode instances
+        :param modal_params: list of Word instances to be applied to current movement mode
+        """
+        modal_params = kwargs.get('modal_params', [])
+        for gcode in sorted(gcode_list):
+            self.state.set_mode(gcode)  # if gcode is not modal, it's ignored
 
-        # initialize
-        self.state = MachineState(self.axes)
-
-        # machine-specific initialization
-        self.machine_init(*args, **kwargs)
-
-    def machine_init(self, *args, **kwargs):
-        # Executed last in instances' __init__ call.
-        # Parameters are identical to that of __init__
-        pass
-
-    def process_line(self, line):
-        """Change machine's state based on the given gcode line"""
-        pass # TODO
-
-
-
-
-"""
-class Axes(object):
-    pass
-
-class MyMachineState(MachineState):
-    axes_state_class = AxesState
-    pass
-
-class MyMachine(AbstractMachine):
-    available_axes = set('xyz')
-    state_class = MyMachineState
-
-
-m = MyMachine(
-    state=MyMachineState(
-        absolute_position=
-    ),
-)
-
-"""
+            # TODO: gcode instance to change machine's state
