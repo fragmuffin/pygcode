@@ -49,12 +49,12 @@ class TestGCodeModalGroups(unittest.TestCase):
 
         #                 Table 6. M-Code Modal Groups
         #       MODAL GROUP MEANING                     MEMBER WORDS
-        table_rows += '''
+        table_rows += re.sub(r'\(Group (\d+)\)', r'(Group 10\1)', '''
         Stopping (Group 4)                      M0, M1, M2, M30, M60
         Spindle (Group 7)                       M3, M4, M5
         Coolant (Group 8)                       M7, M8, M9
         Override Switches (Group 9)             M48, M49
-        '''
+        ''') # groups += 100 (to distinguish "M" GCodes from "G" GCodes)
 
         for row in table_rows.split('\n'):
             match = re.search(r'^\s*(?P<title>.*)\s*\(Group (?P<group>\d+)\)\s*(?P<words>.*)$', row, re.I)

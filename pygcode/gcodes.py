@@ -65,9 +65,9 @@ from .words import Word
 #       User Defined (Group 10)                 M100-M199
 #
 
-MODAL_GROUP_NUM = {
+MODAL_GROUP_MAP = {
     # "G" codes
-    'motion': 1
+    'motion': 1,
     'plane_selection': 2,
     'distance': 3,
     'arc_ijk_distance': 4,
@@ -78,7 +78,7 @@ MODAL_GROUP_NUM = {
     'canned_cycles_return': 10,
     'coordinate_system': 12,
     'control_mode': 13,
-    'spindle_speed': 14,
+    'spindle_speed_mode': 14,
     'lathe_diameter': 15,
 
     # "M" codes
@@ -236,7 +236,7 @@ class GCode(object):
 
 class GCodeMotion(GCode):
     param_letters = set('XYZABCUVW')
-    modal_group = MODAL_GROUP_NUM['motion']
+    modal_group = MODAL_GROUP_MAP['motion']
     exec_order = 241
 
 class GCodeRapidMove(GCodeMotion):
@@ -332,7 +332,7 @@ class GCodeCancelCannedCycle(GCodeMotion):
 
 class GCodeCannedCycle(GCode):
     param_letters = set('XYZUVW')
-    modal_group = MODAL_GROUP_NUM['motion']
+    modal_group = MODAL_GROUP_MAP['motion']
     exec_order = 241
 
 class GCodeDrillingCycle(GCodeCannedCycle):
@@ -391,36 +391,36 @@ class GCodeDistanceMode(GCode):
 class GCodeAbsoluteDistanceMode(GCodeDistanceMode):
     """G90: Absolute Distance Mode"""
     word_key = Word('G', 90)
-    modal_group = MODAL_GROUP_NUM['distance']
+    modal_group = MODAL_GROUP_MAP['distance']
 
 class GCodeIncrementalDistanceMode(GCodeDistanceMode):
     """G91: Incremental Distance Mode"""
     word_key = Word('G', 91)
-    modal_group = MODAL_GROUP_NUM['distance']
+    modal_group = MODAL_GROUP_MAP['distance']
 
 
 class GCodeAbsoluteArcDistanceMode(GCodeDistanceMode):
     """G90.1: Absolute Distance Mode for Arc IJK Parameters"""
     word_key = Word('G', 90.1)
-    modal_group = MODAL_GROUP_NUM['arc_ijk_distance']
+    modal_group = MODAL_GROUP_MAP['arc_ijk_distance']
 
 
 class GCodeIncrementalArcDistanceMode(GCodeDistanceMode):
     """G91.1: Incremental Distance Mode for Arc IJK Parameters"""
     word_key = Word('G', 91.1)
-    modal_group = MODAL_GROUP_NUM['arc_ijk_distance']
+    modal_group = MODAL_GROUP_MAP['arc_ijk_distance']
 
 
 class GCodeLatheDiameterMode(GCodeDistanceMode):
     """G7: Lathe Diameter Mode"""
     word_key = Word('G', 7)
-    modal_group = MODAL_GROUP_NUM['lathe_diameter']
+    modal_group = MODAL_GROUP_MAP['lathe_diameter']
 
 
 class GCodeLatheRadiusMode(GCodeDistanceMode):
     """G8: Lathe Radius Mode"""
     word_key = Word('G', 8)
-    modal_group = MODAL_GROUP_NUM['lathe_diameter']
+    modal_group = MODAL_GROUP_MAP['lathe_diameter']
 
 
 # ======================= Feed Rate Mode =======================
@@ -428,7 +428,7 @@ class GCodeLatheRadiusMode(GCodeDistanceMode):
 # G93, G94, G95                         Feed Rate Mode
 
 class GCodeFeedRateMode(GCode):
-    modal_group = MODAL_GROUP_NUM['feed_rate_mode']
+    modal_group = MODAL_GROUP_MAP['feed_rate_mode']
     exec_order = 30
 
 class GCodeInverseTimeMode(GCodeFeedRateMode):
@@ -460,20 +460,20 @@ class GCodeStartSpindleCW(GCodeSpindle):
     """M3: Start Spindle Clockwise"""
     #param_letters = set('S')  # S is it's own gcode, makes no sense to be here
     word_key = Word('M', 3)
-    modal_group = MODAL_GROUP_NUM['spindle']
+    modal_group = MODAL_GROUP_MAP['spindle']
 
 class GCodeStartSpindleCCW(GCodeSpindle):
     """M4: Start Spindle Counter-Clockwise"""
     #param_letters = set('S')  # S is it's own gcode, makes no sense to be here
     word_key = Word('M', 4)
-    modal_group = MODAL_GROUP_NUM['spindle']
+    modal_group = MODAL_GROUP_MAP['spindle']
 
 
 class GCodeStopSpindle(GCodeSpindle):
     """M5: Stop Spindle"""
     #param_letters = set('S')  # S is it's own gcode, makes no sense to be here
     word_key = Word('M', 5)
-    modal_group = MODAL_GROUP_NUM['spindle']
+    modal_group = MODAL_GROUP_MAP['spindle']
 
 
 class GCodeOrientSpindle(GCodeSpindle):
@@ -485,14 +485,14 @@ class GCodeSpindleConstantSurfaceSpeedMode(GCodeSpindle):
     """G96: Spindle Constant Surface Speed"""
     param_letters = set('DS')
     word_key = Word('G', 96)
-    modal_group = MODAL_GROUP_NUM['spindle_speed']
+    modal_group = MODAL_GROUP_MAP['spindle_speed_mode']
 
 
 class GCodeSpindleRPMMode(GCodeSpindle):
     """G97: Spindle RPM Speed"""
     param_letters = set('D')
     word_key = Word('G', 97)
-    modal_group = MODAL_GROUP_NUM['spindle_speed']
+    modal_group = MODAL_GROUP_MAP['spindle_speed_mode']
 
 
 
@@ -501,7 +501,7 @@ class GCodeSpindleRPMMode(GCodeSpindle):
 # M7, M8, M9                            Coolant Control
 
 class GCodeCoolant(GCode):
-    modal_group = MODAL_GROUP_NUM['coolant']
+    modal_group = MODAL_GROUP_MAP['coolant']
     exec_order = 110
 
 
@@ -528,7 +528,7 @@ class GCodeCoolantOff(GCodeCoolant):
 # G49                                   Cancel Tool Length Compensation
 
 class GCodeToolLength(GCode):
-    modal_group = MODAL_GROUP_NUM['tool_length_offset']
+    modal_group = MODAL_GROUP_MAP['tool_length_offset']
     exec_order = 180
 
 
@@ -561,7 +561,7 @@ class GCodeCancelToolLengthOffset(GCodeToolLength):
 # M60                                   Pallet Change Pause
 
 class GCodeProgramControl(GCode):
-    modal_group = MODAL_GROUP_NUM['stopping']
+    modal_group = MODAL_GROUP_MAP['stopping']
     exec_order = 250
 
 class GCodePauseProgram(GCodeProgramControl):
@@ -594,7 +594,7 @@ class GCodePalletChangePause(GCodeProgramControl):
 # G20, G21                              Units
 
 class GCodeUnit(GCode):
-    modal_group = MODAL_GROUP_NUM['units']
+    modal_group = MODAL_GROUP_MAP['units']
     exec_order = 160
 
 
@@ -614,7 +614,7 @@ class GCodeUseMillimeters(GCodeUnit):
 # G17 - G19.1                           Plane Select
 
 class GCodePlaneSelect(GCode):
-    modal_group = MODAL_GROUP_NUM['plane_selection']
+    modal_group = MODAL_GROUP_MAP['plane_selection']
     exec_order = 150
 
 
@@ -655,7 +655,7 @@ class GCodeSelectVWPlane(GCodePlaneSelect):
 # G41.1, G42.1      D L                 Dynamic Cutter Compensation
 
 class GCodeCutterRadiusComp(GCode):
-    modal_group = MODAL_GROUP_NUM['cutter_diameter_comp']
+    modal_group = MODAL_GROUP_MAP['cutter_diameter_comp']
     exec_order = 170
 
 
@@ -694,7 +694,7 @@ class GCodeDynamicCutterCompRight(GCodeCutterRadiusComp):
 # G64               P Q                 Path Blending
 
 class GCodePathControlMode(GCode):
-    modal_group = MODAL_GROUP_NUM['control_mode']
+    modal_group = MODAL_GROUP_MAP['control_mode']
     exec_order = 200
 
 
@@ -719,7 +719,7 @@ class GCodePathBlendingMode(GCodePathControlMode):
 # G98                                   Canned Cycle Return Level
 
 class GCodeCannedReturnMode(GCode):
-    modal_group = MODAL_GROUP_NUM['canned_cycles_return']
+    modal_group = MODAL_GROUP_MAP['canned_cycles_return']
     exec_order = 220
 
 
@@ -749,7 +749,7 @@ class GCodeFeedRate(GCodeOtherModal):
     @classmethod
     def word_matches(cls, w):
         return w.letter == 'F'
-    modal_group = MODAL_GROUP_NUM['feed_rate']
+    modal_group = MODAL_GROUP_MAP['feed_rate']
     exec_order = 40
 
 
@@ -759,7 +759,7 @@ class GCodeSpindleSpeed(GCodeOtherModal):
     def word_matches(cls, w):
         return w.letter == 'S'
     # Modal Group: (see description in GCodeFeedRate)
-    modal_group = MODAL_GROUP_NUM['spindle_speed']
+    modal_group = MODAL_GROUP_MAP['spindle_speed']
     exec_order = 50
 
 
@@ -769,21 +769,21 @@ class GCodeSelectTool(GCodeOtherModal):
     def word_matches(cls, w):
         return w.letter == 'T'
     # Modal Group: (see description in GCodeFeedRate)
-    modal_group = MODAL_GROUP_NUM['tool']
+    modal_group = MODAL_GROUP_MAP['tool']
     exec_order = 60
 
 
 class GCodeSpeedAndFeedOverrideOn(GCodeOtherModal):
     """M48: Speed and Feed Override Control On"""
     word_key = Word('M', 48)
-    modal_group = MODAL_GROUP_NUM['override_switches']
+    modal_group = MODAL_GROUP_MAP['override_switches']
     exec_order = 120
 
 
 class GCodeSpeedAndFeedOverrideOff(GCodeOtherModal):
     """M49: Speed and Feed Override Control Off"""
     word_key = Word('M', 49)
-    modal_group = MODAL_GROUP_NUM['override_switches']
+    modal_group = MODAL_GROUP_MAP['override_switches']
     exec_order = 120
 
 
@@ -830,7 +830,7 @@ class GCodeSelectCoordinateSystem(GCodeOtherModal):
     @classmethod
     def word_matches(cls, w):
         return (w.letter == 'G') and (w.value in [54, 55, 56, 57, 58, 59, 59.1, 59.2, 59.3])
-    modal_group = MODAL_GROUP_NUM['coordinate_system']
+    modal_group = MODAL_GROUP_MAP['coordinate_system']
     exec_order = 190
 
 
@@ -997,7 +997,7 @@ class GCodeUserDefined(GCodeNonModal):
     #def word_matches(cls, w):
     #    return (w.letter == 'M') and (101 <= w.value <= 199)
     exec_order = 130
-    modal_group = MODAL_GROUP_NUM['user_defined']
+    modal_group = MODAL_GROUP_MAP['user_defined']
 
 
 # ======================= Utilities =======================
