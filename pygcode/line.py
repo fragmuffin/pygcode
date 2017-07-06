@@ -20,9 +20,8 @@ class Line(object):
     @property
     def text(self):
         if self._text is None:
-            return self.build_line_text()
+            return str(self)
         return self._text
 
-
-    def build_line_text(self):
-        return ' '.join([str(x) for x in [self.block, self.comment] if x]) + '\n'
+    def __str__(self):
+        return ' '.join([str(x) for x in [self.block, self.comment] if x])

@@ -5,10 +5,21 @@ import six
 from .exceptions import GCodeBlockFormatError
 
 
-FLOAT_REGEX = re.compile(r'^-?(\d+\.?\d*|\.\d+)') # testcase: ..tests.test_words.WordValueMatchTests.test_float
-INT_REGEX = re.compile(r'^-?\d+')
-POSITIVEINT_REGEX = re.compile(r'^\d+')
-CODE_REGEX = re.compile(r'^\d+(\.\d)?') # similar
+REGEX_FLOAT = re.compile(r'^-?(\d+\.?\d*|\.\d+)') # testcase: ..tests.test_words.WordValueMatchTests.test_float
+REGEX_INT = re.compile(r'^-?\d+')
+REGEX_POSITIVEINT = re.compile(r'^\d+')
+REGEX_CODE = re.compile(r'^\d+(\.\d)?') # similar
+
+# Value cleaning functions
+def _clean_codestr(value):
+    if value < 10:
+        return "0%g" % value
+    return "%g" % value
+
+CLEAN_NONE = lambda v: v
+CLEAN_FLOAT = lambda v: "%g" % v
+CLEAN_CODE = _clean_codestr
+CLEAN_INT = lambda v: "%g" % v
 
 WORD_MAP = {
     # Descriptions copied from wikipedia:
@@ -17,148 +28,174 @@ WORD_MAP = {
     # Rotational Axes
     'A': {
         'class': float,
-        'value_regex': FLOAT_REGEX,
+        'value_regex': REGEX_FLOAT,
         'description': "Absolute or incremental position of A axis (rotational axis around X axis)",
+        'clean_value': CLEAN_FLOAT,
     },
     'B': {
         'class': float,
-        'value_regex': FLOAT_REGEX,
+        'value_regex': REGEX_FLOAT,
         'description': "Absolute or incremental position of B axis (rotational axis around Y axis)",
+        'clean_value': CLEAN_FLOAT,
     },
     'C': {
         'class': float,
-        'value_regex': FLOAT_REGEX,
+        'value_regex': REGEX_FLOAT,
         'description': "Absolute or incremental position of C axis (rotational axis around Z axis)",
+        'clean_value': CLEAN_FLOAT,
     },
     'D': {
         'class': float,
-        'value_regex': FLOAT_REGEX,
+        'value_regex': REGEX_FLOAT,
         'description': "Defines diameter or radial offset used for cutter compensation. D is used for depth of cut on lathes. It is used for aperture selection and commands on photoplotters.",
+        'clean_value': CLEAN_FLOAT,
     },
     # Feed Rates
     'E': {
         'class': float,
-        'value_regex': FLOAT_REGEX,
+        'value_regex': REGEX_FLOAT,
         'description': "Precision feedrate for threading on lathes",
+        'clean_value': CLEAN_FLOAT,
     },
     'F': {
         'class': float,
-        'value_regex': FLOAT_REGEX,
+        'value_regex': REGEX_FLOAT,
         'description': "Feedrate",
+        'clean_value': CLEAN_FLOAT,
     },
     # G-Codes
     'G': {
         'class': float,
-        'value_regex': CODE_REGEX,
+        'value_regex': REGEX_CODE,
         'description': "Address for preparatory commands",
+        'clean_value': CLEAN_CODE,
     },
     # Tool Offsets
     'H': {
         'class': float,
-        'value_regex': FLOAT_REGEX,
+        'value_regex': REGEX_FLOAT,
         'description': "Defines tool length offset; Incremental axis corresponding to C axis (e.g., on a turn-mill)",
+        'clean_value': CLEAN_FLOAT,
     },
     # Arc radius center coords
     'I': {
         'class': float,
-        'value_regex': FLOAT_REGEX,
+        'value_regex': REGEX_FLOAT,
         'description': "Defines arc center in X axis for G02 or G03 arc commands. Also used as a parameter within some fixed cycles.",
+        'clean_value': CLEAN_FLOAT,
     },
     'J': {
         'class': float,
-        'value_regex': FLOAT_REGEX,
+        'value_regex': REGEX_FLOAT,
         'description': "Defines arc center in Y axis for G02 or G03 arc commands. Also used as a parameter within some fixed cycles.",
+        'clean_value': CLEAN_FLOAT,
     },
     'K': {
         'class': float,
-        'value_regex': FLOAT_REGEX,
+        'value_regex': REGEX_FLOAT,
         'description': "Defines arc center in Z axis for G02 or G03 arc commands. Also used as a parameter within some fixed cycles, equal to L address.",
+        'clean_value': CLEAN_FLOAT,
     },
     # Loop Count
     'L': {
         'class': int,
-        'value_regex': POSITIVEINT_REGEX,
+        'value_regex': REGEX_POSITIVEINT,
         'description': "Fixed cycle loop count; Specification of what register to edit using G10",
+        'clean_value': CLEAN_INT,
     },
     # Miscellaneous Function
     'M': {
         'class': float,
-        'value_regex': CODE_REGEX,
+        'value_regex': REGEX_CODE,
         'description': "Miscellaneous function",
+        'clean_value': CLEAN_CODE,
     },
     # Line Number
     'N': {
         'class': int,
-        'value_regex': POSITIVEINT_REGEX,
+        'value_regex': REGEX_POSITIVEINT,
         'description': "Line (block) number in program; System parameter number to change using G10",
+        'clean_value': CLEAN_INT,
     },
     # Program Name
     'O': {
         'class': str,
         'value_regex': re.compile(r'^.+$'), # all the way to the end
         'description': "Program name",
+        'clean_value': CLEAN_NONE,
     },
     # Parameter (arbitrary parameter)
     'P': {
         'class': float, # parameter is often an integer, but can be a float
-        'value_regex': FLOAT_REGEX,
+        'value_regex': REGEX_FLOAT,
         'description': "Serves as parameter address for various G and M codes",
+        'clean_value': CLEAN_FLOAT,
     },
     # Peck increment
     'Q': {
         'class': float,
-        'value_regex': FLOAT_REGEX,
+        'value_regex': REGEX_FLOAT,
         'description': "Depth to increase on each peck; Peck increment in canned cycles",
+        'clean_value': CLEAN_FLOAT,
     },
     # Arc Radius
     'R': {
         'class': float,
-        'value_regex': FLOAT_REGEX,
+        'value_regex': REGEX_FLOAT,
         'description': "Defines size of arc radius, or defines retract height in milling canned cycles",
+        'clean_value': CLEAN_FLOAT,
     },
     # Spindle speed
     'S': {
         'class': float,
-        'value_regex': FLOAT_REGEX,
+        'value_regex': REGEX_FLOAT,
         'description': "Defines speed, either spindle speed or surface speed depending on mode",
+        'clean_value': CLEAN_FLOAT,
     },
     # Tool Selecton
     'T': {
         'class': str,
-        'value_regex': POSITIVEINT_REGEX, # tool string may have leading '0's, but is effectively an index (integer)
+        'value_regex': REGEX_POSITIVEINT, # tool string may have leading '0's, but is effectively an index (integer)
         'description': "Tool selection",
+        'clean_value': CLEAN_NONE,
     },
     # Incremental axes
     'U': {
         'class': float,
-        'value_regex': FLOAT_REGEX,
+        'value_regex': REGEX_FLOAT,
         'description': "Incremental axis corresponding to X axis (typically only lathe group A controls) Also defines dwell time on some machines (instead of 'P' or 'X').",
+        'clean_value': CLEAN_FLOAT,
     },
     'V': {
         'class': float,
-        'value_regex': FLOAT_REGEX,
+        'value_regex': REGEX_FLOAT,
         'description': "Incremental axis corresponding to Y axis",
+        'clean_value': CLEAN_FLOAT,
     },
     'W': {
         'class': float,
-        'value_regex': FLOAT_REGEX,
+        'value_regex': REGEX_FLOAT,
         'description': "Incremental axis corresponding to Z axis (typically only lathe group A controls)",
+        'clean_value': CLEAN_FLOAT,
     },
     # Linear Axes
     'X': {
         'class': float,
-        'value_regex': FLOAT_REGEX,
+        'value_regex': REGEX_FLOAT,
         'description': "Absolute or incremental position of X axis.",
+        'clean_value': CLEAN_FLOAT,
     },
     'Y': {
         'class': float,
-        'value_regex': FLOAT_REGEX,
+        'value_regex': REGEX_FLOAT,
         'description': "Absolute or incremental position of Y axis.",
+        'clean_value': CLEAN_FLOAT,
     },
     'Z': {
         'class': float,
-        'value_regex': FLOAT_REGEX,
+        'value_regex': REGEX_FLOAT,
         'description': "Absolute or incremental position of Z axis.",
+        'clean_value': CLEAN_FLOAT,
     },
 }
 
@@ -174,13 +211,21 @@ class Word(object):
         else:
             self._value = value
 
-        # Sorting Order
-        self._order_linuxcnc = None
+        self._value_class = WORD_MAP[self.letter]['class']
+        self._value_clean = WORD_MAP[self.letter]['clean_value']
 
     def __str__(self):
         return "{letter}{value}".format(
             letter=self.letter,
             value=self.value_str,
+        )
+
+    @property
+    def clean_str(self):
+        """same as __str__ but with a cleaned value (eg: X.4 is X0.4)"""
+        return "{letter}{value}".format(
+            letter=self.letter,
+            value=self.value_cleanstr,
         )
 
     def __repr__(self):
@@ -190,6 +235,8 @@ class Word(object):
         )
 
     def __eq__(self, other):
+        if isinstance(other, six.string_types):
+            other = str2word(other)
         return (self.letter == other.letter) and (self.value == other.value)
 
     def __ne__(self, other):
@@ -198,42 +245,45 @@ class Word(object):
     def __hash__(self):
         return hash((self.letter, self.value))
 
+
     # Value Properties
     @property
     def value_str(self):
-        """Value string, or """
+        """Value string, or string representation of value"""
         if self._value_str is None:
             return str(self._value)
         return self._value_str
 
     @property
+    def value_cleanstr(self):
+        """Clean string representation, for consistent file output"""
+        return self._value_clean(self.value)
+
+    @property
     def value(self):
         if self._value is None:
-            return WORD_MAP[self.letter]['class'](self._value_str)
+            return self._value_class(self._value_str)
         return self._value
 
     # Order
-    @property
-    def orderval_linuxcnc(self):
-        if self._order_linuxcnc is None:
-            self._order_linuxcnc = _word_order_linuxcnc(self)
-        return self._order_linuxcnc
+    def __lt__(self, other):
+        return self.letter < other.letter
 
     @property
     def description(self):
         return "%s: %s" % (self.letter, WORD_MAP[self.letter]['description'])
 
-NEXT_WORD = re.compile(r'^.*?(?P<letter>[%s])' % ''.join(WORD_MAP.keys()), re.IGNORECASE)
 
 def iter_words(block_text):
     """
     Iterate through block text yielding Word instances
     :param block_text: text for given block with comments removed
     """
-    index = 0
+    next_word = re.compile(r'^.*?(?P<letter>[%s])' % ''.join(WORD_MAP.keys()), re.IGNORECASE)
 
+    index = 0
     while True:
-        letter_match = NEXT_WORD.search(block_text[index:])
+        letter_match = next_word.search(block_text[index:])
         if letter_match:
             # Letter
             letter = letter_match.group('letter').upper()

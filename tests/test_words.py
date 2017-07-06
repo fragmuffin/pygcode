@@ -58,7 +58,7 @@ class WordValueMatchTests(unittest.TestCase):
 
     def test_float(self):
         self.regex_assertions(
-            regex=words.FLOAT_REGEX,
+            regex=words.REGEX_FLOAT,
             positive_list=[
                 ('1.2', '1.2'), ('1', '1'), ('200', '200'), ('0092', '0092'),
                 ('1.', '1.'), ('.2', '.2'), ('-1.234', '-1.234'),
@@ -71,7 +71,7 @@ class WordValueMatchTests(unittest.TestCase):
 
     def test_code(self):
         self.regex_assertions(
-            regex=words.CODE_REGEX,
+            regex=words.REGEX_CODE,
             positive_list=[
                 ('1.2', '1.2'), ('1', '1'), ('10', '10'),
                 ('02', '02'), ('02.3', '02.3'),

@@ -24,5 +24,6 @@ def parse(filename):
     with open(filename, 'r') as fh:
         for line in fh.readlines():
             line_obj = Line(line)
+            # FIXME: don't dump entire file into RAM; change to generator model
             file.append(line_obj)
     return file

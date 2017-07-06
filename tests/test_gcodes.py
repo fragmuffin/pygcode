@@ -82,7 +82,7 @@ class TestWordsToGCodes(unittest.TestCase):
     def test_stuff(self):  # FIXME: function name
         line = 'G1 X82.6892 Y-38.6339 F1500'
         word_list = list(words.iter_words(line))
-        result = gcodes.words_to_gcodes(word_list)
+        result = gcodes.words2gcodes(word_list)
         # result form
         self.assertIsInstance(result, tuple)
         self.assertEqual(len(result), 2)

@@ -1,6 +1,6 @@
 import re
 from .words import iter_words, WORD_MAP
-from .gcodes import words_to_gcodes
+from .gcodes import words2gcodes
 
 class Block(object):
     """GCode block (effectively any gcode file line that defines any <word><value>)"""
@@ -21,7 +21,7 @@ class Block(object):
         self.text = text
 
         self.words = list(iter_words(self.text))
-        (self.gcodes, self.modal_params) = words_to_gcodes(self.words)
+        (self.gcodes, self.modal_params) = words2gcodes(self.words)
 
         self._assert_gcodes()
 
@@ -31,7 +31,9 @@ class Block(object):
     def _assert_gcodes(self):
         modal_groups = set()
         code_words = set()
+
         for gc in self.gcodes:
+            
             # Assert all gcodes are not repeated in the same block
             if gc.word in code_words:
                 raise AssertionError("%s cannot be in the same block" % ([
@@ -39,6 +41,7 @@ class Block(object):
                     if x.modal_group == gc.modal_group
                 ]))
             code_words.add(gc.word)
+
             # Assert all gcodes are from different modal groups
             if gc.modal_group is not None:
                 if gc.modal_group in modal_groups:
@@ -61,3 +64,6 @@ class Block(object):
                 cls=self.__class__.__name__,
                 key=k
             ))
+
+    def __str__(self):
+        return ' '.join(str(x) for x in (self.gcodes + [p.clean_str for p in self.modal_params]))
