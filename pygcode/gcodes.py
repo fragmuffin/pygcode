@@ -618,7 +618,7 @@ class GCodePlaneSelect(GCode):
     exec_order = 150
 
 
-class GCodeSelectZYPlane(GCodePlaneSelect):
+class GCodeSelectXYPlane(GCodePlaneSelect):
     """G17: select XY plane (default)"""
     word_key = Word('G', 17)
 
