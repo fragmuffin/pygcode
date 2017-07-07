@@ -1,4 +1,5 @@
 from collections import defaultdict
+from copy import copy
 
 from .words import Word
 
@@ -140,8 +141,9 @@ class GCode(object):
     # Parameters associated to this gcode
     param_letters = set()
 
-    # Modal Group
+    # Modal stuff
     modal_group = None
+    modal_param_letters = set() # by default: no parameters are retained in modal state
 
     # Execution Order
     exec_order = 999  # if not otherwise specified, run last
@@ -208,15 +210,12 @@ class GCode(object):
     def description(self):
         return self.__doc__
 
-    @property
-    def mode(self):
-        """
-        Mode word for modal GCodes
-        :return: Word to save machine's state, or None if GCode is not modal
-        """
-        if self.modal_group is None:
-            return None
-        return self.word
+    def modal_copy(self):
+        """Copy of GCode instance containing only parameters listed in modal_param_letters"""
+        return self.__class__(self.word, *[
+            w for (l, w) in self.params.items()
+            if l in self.modal_param_letters
+        ])
 
 
 # ======================= Motion =======================
