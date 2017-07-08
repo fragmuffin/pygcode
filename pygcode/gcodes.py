@@ -102,7 +102,6 @@ MODAL_GROUP_MAP = {
     'tool': 203,
 }
 
-
 # Execution Order
 #       Order taken http://linuxcnc.org/docs/html/gcode/overview.html#_g_code_order_of_execution
 #         (as of 2017-07-03)
@@ -131,12 +130,6 @@ MODAL_GROUP_MAP = {
 #       230: Go to reference location (G28, G30) or change coordinate system data (G10) or set axis offsets (G92, G92.1, G92.2, G94).
 #       240: Perform motion (G0 to G3, G33, G38.x, G73, G76, G80 to G89), as modified (possibly) by G53.
 #       250: Stop (M0, M1, M2, M30, M60).
-
-class GCodeEffect(object):
-    """Effect a gcode has on a machine upon processing"""
-    def __init__(self, **kwargs):
-        self.mode = {}
-        self.dt = 0.0
 
 
 class GCode(object):
@@ -252,7 +245,6 @@ class GCode(object):
         """
         from .machine import Machine  # importing high-level state
         assert isinstance(machine, Machine), "invalid parameter"
-        effect = GCodeEffect()
 
         # Set mode
         self._process_mode(machine)
