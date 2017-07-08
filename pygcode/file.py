@@ -14,12 +14,15 @@ class GCodeFile(object):
         self.lines.append(line)
 
 
-def parse(filename):
-    # FIXME: should be an iterator, and also not terrible
-    file = GCodeFile()
-    with open(filename, 'r') as fh:
-        for line in fh.readlines():
-            line_obj = Line(line)
-            # FIXME: don't dump entire file into RAM; change to generator model
-            file.append(line_obj)
-    return file
+class GCodeParser(object):
+    """Parse a gocde file"""
+    def __init__(self, filename):
+        self.filename = filename
+        self._fh = open(filename, 'r')
+
+    def iterlines(self):
+        for line in self._fh.readlines():
+            yield Line(line)
+
+    def close(self):
+        self._fh.close()

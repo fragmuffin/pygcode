@@ -281,7 +281,7 @@ class Word(object):
         return "%s: %s" % (self.letter, WORD_MAP[self.letter]['description'])
 
 
-def iter_words(block_text):
+def text2words(block_text):
     """
     Iterate through block text yielding Word instances
     :param block_text: text for given block with comments removed
@@ -315,8 +315,21 @@ def iter_words(block_text):
 
 
 def str2word(word_str):
-    words = list(iter_words(word_str))
+    words = list(text2words(word_str))
     if words:
         assert len(words) <= 1, "more than one word given"
         return words[0]
     return None
+
+
+def words2dict(word_list, limit_word_letters=None):
+    """
+    Represent a list of words as a dict
+    :param limit_word_letters: iterable containing a white-list of word letters (None allows all)
+    :return: dict of the form: {<letter>: <value>, ... }
+    """
+    # Remember: duplicate word letters cannot be represented as a dict
+    return dict(
+        (w.letter, w.value) for w in word_list
+        if (limit_word_letters is None) or (w.letter in limit_word_letters)
+    )

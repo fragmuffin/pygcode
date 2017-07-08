@@ -4,9 +4,11 @@ import inspect
 import re
 import unittest
 
-# Units Under Test
-_this_path = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
-sys.path.insert(0, os.path.join(_this_path, '..'))
+# Add relative pygcode to path
+from testutils import add_pygcode_to_path, str_lines
+add_pygcode_to_path()
+
+# Units under test
 from pygcode import gcodes
 from pygcode import words
 class TestGCodeWordMapping(unittest.TestCase):
@@ -60,7 +62,7 @@ class TestGCodeModalGroups(unittest.TestCase):
             match = re.search(r'^\s*(?P<title>.*)\s*\(Group (?P<group>\d+)\)\s*(?P<words>.*)$', row, re.I)
             if match:
                 for word_str in re.split(r'\s*,\s*', match.group('words')):
-                    word = list(words.iter_words(word_str))[0]
+                    word = list(words.text2words(word_str))[0]
                     gcode_class = gcodes.word_gcode_class(word)
                     # GCode class found for each word in the table
                     self.assertIsNotNone(gcode_class)
@@ -81,7 +83,7 @@ class TestGCodeModalGroups(unittest.TestCase):
 class TestWordsToGCodes(unittest.TestCase):
     def test_stuff(self):  # FIXME: function name
         line = 'G1 X82.6892 Y-38.6339 F1500'
-        word_list = list(words.iter_words(line))
+        word_list = list(words.text2words(line))
         result = gcodes.words2gcodes(word_list)
         # result form
         self.assertIsInstance(result, tuple)

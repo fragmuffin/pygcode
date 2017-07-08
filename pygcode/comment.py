@@ -7,6 +7,12 @@ class CommentBase(object):
     def __init__(self, text):
         self.text = text
 
+    def __repr__(self):
+        return "<{class_name}: '{comment}'>".format(
+            class_name=self.__class__.__name__,
+            comment=str(self),
+        )
+
 
 class CommentSemicolon(CommentBase):
     "Comments of the format: 'G00 X1 Y2 ; something profound'"

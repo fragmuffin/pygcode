@@ -1,39 +1,50 @@
 import re
-from .words import iter_words, WORD_MAP
+from .words import text2words, WORD_MAP
 from .gcodes import words2gcodes
 
 class Block(object):
     """GCode block (effectively any gcode file line that defines any <word><value>)"""
 
-    def __init__(self, text):
+    def __init__(self, text=None, verify=True):
         """
         Block Constructor
         :param A-Z: gcode parameter values
         :param comment: comment text
         """
 
-        self._raw_text = text  # unaltered block content (before alteration)
+        self._raw_text = None
+        self._text = None
+        self.words = []
+        self.gcodes = []
+        self.modal_params = []
 
         # clean up block string
-        text = re.sub(r'(^\s+|\s+$)', '', text) # remove whitespace padding
-        text = re.sub(r'\s+', ' ', text) # remove duplicate whitespace with ' '
+        if text:
+            self._raw_text = text  # unaltered block content (before alteration)
+            text = re.sub(r'(^\s+|\s+$)', '', text) # remove whitespace padding
+            text = re.sub(r'\s+', ' ', text) # remove duplicate whitespace with ' '
+            self._text = text  # cleaned up block content
 
-        self.text = text
+            # Get words from text, and group into gcodes
+            self.words = list(text2words(self._text))
+            (self.gcodes, self.modal_params) = words2gcodes(self.words)
 
-        self.words = list(iter_words(self.text))
-        (self.gcodes, self.modal_params) = words2gcodes(self.words)
+            # Verification
+            if verify:
+                self._assert_gcodes()
 
-        self._assert_gcodes()
-
-        # TODO: gcode verification
-        #   - gcodes in the same modal_group raises exception
+    @property
+    def text(self):
+        if self._text:
+            return self._text
+        return str(self)
 
     def _assert_gcodes(self):
         modal_groups = set()
         code_words = set()
 
         for gc in self.gcodes:
-            
+
             # Assert all gcodes are not repeated in the same block
             if gc.word in code_words:
                 raise AssertionError("%s cannot be in the same block" % ([

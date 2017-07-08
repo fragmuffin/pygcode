@@ -4,23 +4,18 @@ import inspect
 
 import unittest
 
-# Units Under Test
-_this_path = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
-sys.path.insert(0, os.path.join(_this_path, '..'))
+# Add relative pygcode to path
+from testutils import add_pygcode_to_path, str_lines
+add_pygcode_to_path()
+
+# Units under test
 from pygcode import words
-
-#words.iter_words
-
-class WordTests(unittest.TestCase):
-    def test_O(self):
-        pass # TODO
-
 
 
 class WordIterTests(unittest.TestCase):
     def test_iter1(self):
         block_str = 'G01 Z-0.5 F100'
-        w = list(words.iter_words(block_str))
+        w = list(words.text2words(block_str))
         # word length
         self.assertEqual(len(w), 3)
         # word values
@@ -30,7 +25,7 @@ class WordIterTests(unittest.TestCase):
 
     def test_iter2(self):
         block_str = 'G02 X10.75 Y47.44 I-0.11 J-1.26 F70'
-        w = list(words.iter_words(block_str))
+        w = list(words.text2words(block_str))
         # word length
         self.assertEqual(len(w), 6)
         # word values
