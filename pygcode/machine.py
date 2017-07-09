@@ -6,10 +6,13 @@ from .gcodes import (
     # Modal GCodes
     GCodeIncrementalDistanceMode,
     GCodeUseInches, GCodeUseMillimeters,
+    # Utilities
+    words2gcodes,
 )
 from .block import Block
 from .line import Line
 from .words import Word
+from .utils import Vector3, Quaternion
 
 from .exceptions import MachineInvalidAxis, MachineInvalidState
 
@@ -133,6 +136,10 @@ class Position(object):
     @property
     def values(self):
         return dict(self._value)
+
+    @property
+    def vector(self):
+        return Vector3(self._value['X'], self._value['Y'], self._value['Z'])
 
     def __repr__(self):
         return "<{class_name}: {coordinates}>".format(
@@ -356,12 +363,26 @@ class Machine(object):
             return modal_gcodes[0]
         return None
 
+    def block_modal_gcodes(self, block):
+        """
+        Block's GCode list in current machine mode
+        :param block: Block instance
+        :return: list of gcodes, block.gcodes + <modal gcode, if there is one>
+        """
+        assert isinstance(block, Block), "invalid parameter"
+        gcodes = copy(block.gcodes)
+        modal_gcode = self.modal_gcode(block.modal_params)
+        if modal_gcode:
+            gcodes.append(modal_gcode)
+        return sorted(gcodes)
+
     def process_gcodes(self, *gcode_list, **kwargs):
         """
         Process gcodes
         :param gcode_list: list of GCode instances
         :param modal_params: list of Word instances to be applied to current movement mode
         """
+        gcode_list = list(gcode_list) # make appendable
         # Add modal gcode to list of given gcodes
         modal_params = kwargs.get('modal_params', [])
         if modal_params:

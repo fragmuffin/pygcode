@@ -1,6 +1,8 @@
+import sys
 from collections import defaultdict
 from copy import copy
 
+from .utils import Vector3, Quaternion, quat2coord_system
 from .words import Word, text2words
 
 from .exceptions import GCodeParameterError, GCodeWordStrError
@@ -249,15 +251,19 @@ class GCode(object):
             if l in self.modal_param_letters
         ])
 
-    def get_param_dict(self, letters=None):
+    def get_param_dict(self, letters=None, lc=False):
         """
         Get gcode parameters as a dict
         gcode parameter like "X3.1, Y-2" would return {'X': 3.1, 'Y': -2}
         :param letters: iterable whitelist of letters to include as dict keys
+        :param lc: lower case parameter letters
         :return: dict of gcode parameters' (letter, value) pairs
         """
+        letter_mod = lambda x: x
+        if lc:
+            letter_mod = lambda x: x.lower()
         return dict(
-            (w.letter, w.value) for w in self.params.values()
+            (letter_mod(w.letter), w.value) for w in self.params.values()
             if (letters is None) or (w.letter in letters)
         )
 
@@ -469,6 +475,7 @@ class GCodeAbsoluteDistanceMode(GCodeDistanceMode):
     """G90: Absolute Distance Mode"""
     word_key = Word('G', 90)
     modal_group = MODAL_GROUP_MAP['distance']
+
 
 class GCodeIncrementalDistanceMode(GCodeDistanceMode):
     """G91: Incremental Distance Mode"""
@@ -701,20 +708,48 @@ class GCodePlaneSelect(GCode):
     modal_group = MODAL_GROUP_MAP['plane_selection']
     exec_order = 150
 
+    # -- Plane Orientation Quaternion
+    # Such that...
+    #   vectorXY = Vector3(<your coords in X/Y plane>)
+    #   vectorZX = GCodeSelectZXPlane.quat * vectorXY
+    #   vectorZX += some_offset_vector
+    #   vectorXY = GCodeSelectZXPlane.quat.conjugate() * vectorZX
+    # note: all quaternions use the XY plane as a basis
+    # To transform from ZX to YZ planes via these quaternions, you must
+    # first translate it to XY, like so:
+    #   vectorYZ = GCodeSelectYZPlane.quat * (GCodeSelectZXPlane.quat.conjugate() * vectorZX)
+    quat = None  # Quaternion
+
+    # -- Plane Normal
+    # Vector normal to plane (such that XYZ axes follow the right-hand rule)
+    normal = None  # Vector3
+
 
 class GCodeSelectXYPlane(GCodePlaneSelect):
     """G17: select XY plane (default)"""
     word_key = Word('G', 17)
+    quat = Quaternion()  # no effect
+    normal = Vector3(0, 0, 1)
 
 
 class GCodeSelectZXPlane(GCodePlaneSelect):
     """G18: select ZX plane"""
     word_key = Word('G', 18)
+    quat = quat2coord_system(
+        Vector3(1, 0, 0), Vector3(0, 1, 0),
+        Vector3(0, 0, 1), Vector3(1, 0, 0)
+    )
+    normal = Vector3(0, 1, 0)
 
 
 class GCodeSelectYZPlane(GCodePlaneSelect):
     """G19: select YZ plane"""
     word_key = Word('G', 19)
+    quat = quat2coord_system(
+        Vector3(1, 0, 0), Vector3(0, 1, 0),
+        Vector3(0, 1, 0), Vector3(0, 0, 1)
+    )
+    normal = Vector3(1, 0, 0)
 
 
 class GCodeSelectUVPlane(GCodePlaneSelect):

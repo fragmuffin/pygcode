@@ -8,6 +8,8 @@ I'll be learning along the way, but the plan is to follow the lead of [GRBL](htt
 
 `pip install pygcode`
 
+FIXME: well, that's the plan... give me some time to get it going though.
+
 ## Usage
 
 Just brainstorming here...
