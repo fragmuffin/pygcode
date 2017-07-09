@@ -3,6 +3,8 @@ from copy import copy
 
 from .words import Word
 
+from .exceptions import GCodeParameterError
+
 # Terminology of a "G-Code"
 #   For the purposes of this library, so-called "G" codes do not necessarily
 #   use the letter "G" in their word; other letters include M, F, S, and T
@@ -196,8 +198,11 @@ class GCode(object):
         :param word: Word instance
         """
         assert isinstance(word, Word), "invalid parameter class: %r" % word
-        assert word.letter in self.param_letters, "invalid parameter for %s: %s" % (self.__class__.__name__, str(word))
-        assert word.letter not in self.params, "parameter defined twice: %s -> %s" % (self.params[word.letter], word)
+        if word.letter not in self.param_letters:
+            raise GCodeParameterError("invalid parameter for %s: %s" % (self.__class__.__name__, str(word)))
+        if word.letter in self.params:
+            raise GCodeParameterError("parameter defined twice: %s -> %s" % (self.params[word.letter], word))
+
         self.params[word.letter] = word
 
     def __getattr__(self, key):
@@ -243,7 +248,7 @@ class GCode(object):
         :param machine: Machine instance, to change state
         :return: GCodeEffect instance; effect the gcode just had on machine
         """
-        from .machine import Machine  # importing high-level state
+        from .machine import Machine  # importing up (done live to avoid dependency loop)
         assert isinstance(machine, Machine), "invalid parameter"
 
         # Set mode

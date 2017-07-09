@@ -7,6 +7,7 @@ add_pygcode_to_path()
 # Units under test
 from pygcode.machine import Position, Machine
 from pygcode.line import Line
+from pygcode.exceptions import MachineInvalidAxis
 
 
 class PositionTests(unittest.TestCase):
@@ -56,9 +57,9 @@ class PositionTests(unittest.TestCase):
         self.assertEqual(p1 + p2, Position(axes='XYZ', X=1, Y=12, Z=-20))
 
         p3 = Position(axes='XYZA')
-        with self.assertRaises(AssertionError):
+        with self.assertRaises(MachineInvalidAxis):
             p1 + p3  # mismatched axes
-        with self.assertRaises(AssertionError):
+        with self.assertRaises(MachineInvalidAxis):
             p3 + p1  # mismatched axes
 
     def test_arithmetic_sub(self):
@@ -68,7 +69,7 @@ class PositionTests(unittest.TestCase):
 
         p3 = Position(axes='XYZA')
         p3 - p1  # fine
-        with self.assertRaises(AssertionError):
+        with self.assertRaises(MachineInvalidAxis):
             p1 - p3  # mismatched axes
 
     def test_arithmetic_multiply(self):

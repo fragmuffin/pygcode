@@ -11,6 +11,7 @@ from .block import Block
 from .line import Line
 from .words import Word
 
+from .exceptions import MachineInvalidAxis, MachineInvalidState
 
 UNIT_IMPERIAL = GCodeUseInches.unit_id      # G20
 UNIT_METRIC = GCodeUseMillimeters.unit_id   # G21
@@ -37,7 +38,8 @@ class Position(object):
             axes = self.__class__.default_axes
         else:
             invalid_axes = set(axes) - self.POSSIBLE_AXES
-            assert not invalid_axes, "invalid axes proposed %s" % invalid_axes
+            if invalid_axes:
+                raise MachineInvalidAxis("invalid axes proposed %s" % invalid_axes)
         self.__dict__['axes'] = set(axes) & self.POSSIBLE_AXES
 
         # Unit
@@ -61,7 +63,7 @@ class Position(object):
         if key in self.axes:
             self._value[key] = value
         elif key in self.POSSIBLE_AXES:
-            raise AssertionError("'%s' axis is not defined to be set" % key)
+            raise MachineInvalidAxis("'%s' axis is not defined to be set" % key)
         else:
             self.__dict__[key] = value
 
@@ -86,14 +88,16 @@ class Position(object):
 
     # Arithmetic
     def __add__(self, other):
-        assert not (self.axes ^ other.axes), "axes: %r != %r" % (self.axes, other.axes)
+        if self.axes ^ other.axes:
+            raise MachineInvalidAxis("axes: %r != %r" % (self.axes, other.axes))
         new_obj = copy(self)
         for k in new_obj._value:
             new_obj._value[k] += other._value[k]
         return new_obj
 
     def __sub__(self, other):
-        assert not (other.axes - self.axes), "for a - b: axes in b, that are not in a: %r" % (other.axes - self.axes)
+        if other.axes - self.axes:
+            raise MachineInvalidAxis("for a - b: axes in b, that are not in a: %r" % (other.axes - self.axes))
         new_obj = copy(self)
         for k in other._value:
             new_obj._value[k] -= other._value[k]
@@ -277,11 +281,12 @@ class Mode(object):
                 # clear mode group
                 self.modal_groups[MODAL_GROUP_MAP[key]] = None
             else:
-                # set mode group explicitly
+                # set mode group explicitly, not advisable
                 # (recommended to use self.set_mode(value) instead)
-                assert isinstance(value, GCode), "invalid value type: %r" % value
-                assert value.modal_group == MODAL_GROUP_MAP[key], \
-                    "cannot set '%s' mode as %r, wrong group" % (key, value)
+                if not isinstance(value, GCode):
+                    raise MachineInvalidState("invalid mode value: %r" % value)
+                if value.modal_group != MODAL_GROUP_MAP[key]:
+                    raise MachineInvalidState("cannot set '%s' mode as %r, wrong group" % (key, value))
                 self.modal_groups[MODAL_GROUP_MAP[key]] = value.modal_copy()
         else:
             self.__dict__[key] = value
@@ -329,6 +334,21 @@ class Machine(object):
         if coord_sys_mode:
             self.state.cur_coord_sys = coord_sys_mode.coord_system_id
 
+    def modal_gcode(self, modal_params):
+        if not modal_params:
+            return None
+        if self.mode.motion is None:
+            raise MachineInvalidState("unable to assign modal parameters when no motion mode is set")
+        (modal_gcodes, unasigned_words) = words2gcodes([self.mode.motion.word] + modal_params)
+        if unasigned_words:
+            raise MachineInvalidState("modal parameters '%s' cannot be assigned when in mode: %r" % (
+                ' '.join(str(x) for x in unasigned_words), self.mode
+            ))
+        if modal_gcodes:
+            assert len(modal_gcodes) == 1, "more than 1 modal code found"
+            return modal_gcodes[0]
+        return None
+
     def process(self, *gcode_list, **kwargs):
         """
         Process gcodes
@@ -338,12 +358,9 @@ class Machine(object):
         # Add modal gcode to list of given gcodes
         modal_params = kwargs.get('modal_params', [])
         if modal_params:
-            assert self.mode.motion is not None, "unable to assign modal parameters when no motion mode is set"
-            (modal_gcodes, unasigned_words) = words2gcodes([self.mode.motion.word] + modal_params)
-            assert unasigned_words == [], "modal parameters '%s' unknown when in mode: %r" % (
-                ' '.join(str(x) for x in unasigned_words), self.mode
-            )
-            gcode_list += modal_gcodes
+            modal_gcode = self.modal_gcode(modal_params)
+            if modal_gcode:
+                gcode_list.append(modal_gcode)
 
         for gcode in sorted(gcode_list):
             gcode.process(self) # shifts ownership of what happens now to GCode class

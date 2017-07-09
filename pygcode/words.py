@@ -2,7 +2,7 @@ import re
 import itertools
 import six
 
-from .exceptions import GCodeBlockFormatError
+from .exceptions import GCodeBlockFormatError, GCodeWordStrError
 
 REGEX_FLOAT = re.compile(r'^-?(\d+\.?\d*|\.\d+)') # testcase: ..tests.test_words.WordValueMatchTests.test_float
 REGEX_INT = re.compile(r'^-?\d+')
@@ -201,10 +201,13 @@ WORD_MAP = {
 
 class Word(object):
     def __init__(self, *args):
-        assert len(args) in [1, 2], "input arguments either: (letter, value) or (word_str)"
+        if len(args) not in (1, 2):
+            raise AssertionError("input arguments either: (letter, value) or (word_str)")
         if len(args) == 2:
+            # Word('G', 90)
             (letter, value) = args
         else:
+            # Word('G90')
             word_str = args[0]
             letter = word_str[0] # first letter
             value = word_str[1:] # rest of string
@@ -300,7 +303,7 @@ def text2words(block_text):
             value_regex = WORD_MAP[letter]['value_regex']
             value_match = value_regex.search(block_text[index:])
             if value_match is None:
-                raise GCodeBlockFormatError("word '%s' value invalid" % letter)
+                raise GCodeWordStrError("word '%s' value invalid" % letter)
             value = value_match.group() # matched text
 
             yield Word(letter, value)
@@ -311,13 +314,14 @@ def text2words(block_text):
 
     remainder = block_text[index:]
     if remainder and re.search(r'\S', remainder):
-        raise GCodeBlockFormatError("block code remaining '%s'" % remainder)
+        raise GCodeWordStrError("block code remaining '%s'" % remainder)
 
 
 def str2word(word_str):
     words = list(text2words(word_str))
     if words:
-        assert len(words) <= 1, "more than one word given"
+        if len(words) > 1:
+            raise GCodeWordStrError("more than one word given")
         return words[0]
     return None
 
