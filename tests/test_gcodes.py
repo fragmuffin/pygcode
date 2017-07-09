@@ -11,7 +11,10 @@ add_pygcode_to_path()
 # Units under test
 from pygcode import gcodes
 from pygcode import words
-class TestGCodeWordMapping(unittest.TestCase):
+
+from pygcode.exceptions import GCodeWordStrError
+
+class GCodeWordMappingTests(unittest.TestCase):
     def test_word_map_integrity(self):
 
         gcodes.build_maps()
@@ -24,7 +27,7 @@ class TestGCodeWordMapping(unittest.TestCase):
                     "conflict with %s and %s" % (fn_class, key_class)
                 )
 
-class TestGCodeModalGroups(unittest.TestCase):
+class GCodeModalGroupTests(unittest.TestCase):
     def test_modal_groups(self):
         # Modal groups taken (and slightly modified) from LinuxCNC documentation:
         #   link: http://linuxcnc.org/docs/html/gcode/overview.html#_modal_groups
@@ -80,7 +83,7 @@ class TestGCodeModalGroups(unittest.TestCase):
                         )
 
 
-class TestWordsToGCodes(unittest.TestCase):
+class Words2GCodesTests(unittest.TestCase):
     def test_stuff(self):  # FIXME: function name
         line = 'G1 X82.6892 Y-38.6339 F1500'
         word_list = list(words.text2words(line))
@@ -99,3 +102,40 @@ class TestWordsToGCodes(unittest.TestCase):
         self.assertEqual(gcode_list[0].Y, -38.6339)
         #   F1500
         self.assertEqual(gcode_list[1].word, words.Word('F', 1500))
+
+
+class Text2GCodesTests(unittest.TestCase):
+    def test_basic(self):
+        gcs = gcodes.text2gcodes('G1 X1 Y2 G90')
+        self.assertEqual(len(gcs), 2)
+        # G1 X1 Y2
+        self.assertEqual(gcs[0].word, words.Word('G', 1))
+        self.assertEqual(gcs[0].X, 1)
+        self.assertEqual(gcs[0].Y, 2)
+        # G90
+        self.assertEqual(gcs[1].word, words.Word('G', 90))
+
+    def test_modal_params(self):
+        with self.assertRaises(GCodeWordStrError):
+            gcodes.text2gcodes('X1 Y2')
+
+
+class GCodeSplitTests(unittest.TestCase):
+
+    def test_split(self):
+        g_list = gcodes.text2gcodes('G91 S1000 G1 X1 Y2 M3')
+        split = gcodes.split_gcodes(g_list, gcodes.GCodeStartSpindle)
+        self.assertEqual([len(x) for x in split], [1, 1, 2])
+        self.assertTrue(any(isinstance(g, gcodes.GCodeSpindleSpeed) for g in split[0]))
+        self.assertTrue(isinstance(split[1][0], gcodes.GCodeStartSpindle))
+        self.assertTrue(any(isinstance(g, gcodes.GCodeDistanceMode) for g in split[2]))
+        self.assertTrue(any(isinstance(g, gcodes.GCodeMotion) for g in split[2]))
+
+    def test_split_unsorted(self):
+        g_list = gcodes.text2gcodes('G91 G1 X1 Y2 M3 S1000')
+        split = gcodes.split_gcodes(g_list, gcodes.GCodeStartSpindle, sort_list=False)
+        self.assertEqual([len(x) for x in split], [2, 1, 1])
+        self.assertTrue(any(isinstance(g, gcodes.GCodeDistanceMode) for g in split[0]))
+        self.assertTrue(any(isinstance(g, gcodes.GCodeMotion) for g in split[0]))
+        self.assertTrue(isinstance(split[1][0], gcodes.GCodeStartSpindle))
+        self.assertTrue(any(isinstance(g, gcodes.GCodeSpindleSpeed) for g in split[2]))

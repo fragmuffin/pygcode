@@ -253,7 +253,7 @@ class Mode(object):
 
     def set_mode(self, *gcode_list):
         """
-        Set machine mode from given gcodes
+        Set machine mode from given gcodes (will not be processed)
         :param gcode_list: list of GCode instances (given as individual parameters)
         :return: dict of form: {<modal group>: <new mode GCode>, ...}
         """
@@ -291,12 +291,17 @@ class Mode(object):
         else:
             self.__dict__[key] = value
 
-    def __str__(self):
+    @property
+    def gcodes(self):
+        """List of modal gcodes"""
         gcode_list = []
         for modal_group in sorted(MODAL_GROUP_MAP.values()):
             if self.modal_groups[modal_group]:
                 gcode_list.append(self.modal_groups[modal_group])
-        return ' '.join(str(g) for g in gcode_list)
+        return gcode_list
+
+    def __str__(self):
+        return ' '.join(str(g) for g in self.gcodes)
 
     def __repr__(self):
         return "<{class_name}: {gcodes}>".format(
@@ -318,9 +323,10 @@ class Machine(object):
         self.state = self.STATE_CLASS(axes=self.axes)
 
         # Position type (with default axes the same as this machine)
+        units_mode = getattr(self.mode, 'units', None)
         self.Position = type('Position', (Position,), {
             'default_axes': self.axes,
-            'default_unit': self.mode.units.unit_id,
+            'default_unit': units_mode.unit_id if units_mode else UNIT_METRIC,
         })
 
         # Absolute machine position
@@ -335,6 +341,7 @@ class Machine(object):
             self.state.cur_coord_sys = coord_sys_mode.coord_system_id
 
     def modal_gcode(self, modal_params):
+
         if not modal_params:
             return None
         if self.mode.motion is None:
@@ -349,7 +356,7 @@ class Machine(object):
             return modal_gcodes[0]
         return None
 
-    def process(self, *gcode_list, **kwargs):
+    def process_gcodes(self, *gcode_list, **kwargs):
         """
         Process gcodes
         :param gcode_list: list of GCode instances
@@ -377,7 +384,11 @@ class Machine(object):
             #   - Crop a file (eg: resume half way through)
 
     def process_block(self, block):
-        self.process(*block.gcodes, modal_params=block.modal_params)
+        self.process_gcodes(*block.gcodes, modal_params=block.modal_params)
+
+    def process_str(self, block_str):
+        line = Line(block_str)
+        self.process_block(line.block)
 
     @property
     def pos(self):

@@ -1,9 +1,9 @@
 from collections import defaultdict
 from copy import copy
 
-from .words import Word
+from .words import Word, text2words
 
-from .exceptions import GCodeParameterError
+from .exceptions import GCodeParameterError, GCodeWordStrError
 
 # Terminology of a "G-Code"
 #   For the purposes of this library, so-called "G" codes do not necessarily
@@ -138,6 +138,7 @@ class GCode(object):
     # Defining Word
     word_key = None # Word instance to use in lookup
     word_matches = None # function (secondary)
+    default_word = None
 
     # Parameters associated to this gcode
     param_letters = set()
@@ -149,18 +150,24 @@ class GCode(object):
     # Execution Order
     exec_order = 999  # if not otherwise specified, run last
 
-    def __init__(self, word, *params):
+    def __init__(self, *words):
         """
         :param word: Word instance defining gcode (eg: Word('G0') for rapid movement)
         :param params: list of Word instances (eg: Word('X-1.2') as x-coordinate)
         """
-        assert isinstance(word, Word), "invalid gcode word %r" % code_word
-        self.word = word
+        gcode_word_list = words[:1]
+        param_words = words[1:]
+        if gcode_word_list:
+            gcode_word = gcode_word_list[0]
+        else:
+            gcode_word = self._default_word()
+        assert isinstance(gcode_word, Word), "invalid gcode word %r" % gcode_word
+        self.word = gcode_word
         self.params = {}
 
         # Add Given Parameters
-        for param in params:
-            self.add_parameter(param)
+        for param_word in param_words:
+            self.add_parameter(param_word)
 
     def __repr__(self):
         param_str = ''
@@ -188,10 +195,23 @@ class GCode(object):
             parameters=param_str,
         )
 
-    # Sort by exec_order
+    def _default_word(self):
+        if self.default_word:
+            return copy(self.default_word)
+        elif self.word_key:
+            return copy(self.word_key)
+        raise AssertionError("class %r has no default word" % self.__class__)
+
+    # Comparisons
     def __lt__(self, other):
+        """Sort by execution order"""
         return self.exec_order < other.exec_order
 
+    def __gt__(self, other):
+        """Sort by execution order"""
+        return self.exec_order > other.exec_order
+
+    # Parameters
     def add_parameter(self, word):
         """
         Add given word as a parameter for this gcode
@@ -355,6 +375,7 @@ class GCodeStraightProbe(GCodeMotion):
     @classmethod
     def word_matches(cls, w):
         return (w.letter == 'G') and (38.2 <= w.value <= 38.5)
+    default_word = Word('G', 38.2)
 
 
 class GCodeSpindleSyncMotion(GCodeMotion):
@@ -512,17 +533,20 @@ class GCodeSpindle(GCode):
     exec_order = 90
 
 
-class GCodeStartSpindleCW(GCodeSpindle):
+class GCodeStartSpindle(GCodeSpindle):
+    """M3,M4: Start Spindle Clockwise"""
+    modal_group = MODAL_GROUP_MAP['spindle']
+
+
+class GCodeStartSpindleCW(GCodeStartSpindle):
     """M3: Start Spindle Clockwise"""
     #param_letters = set('S')  # S is it's own gcode, makes no sense to be here
     word_key = Word('M', 3)
-    modal_group = MODAL_GROUP_MAP['spindle']
 
-class GCodeStartSpindleCCW(GCodeSpindle):
+class GCodeStartSpindleCCW(GCodeStartSpindle):
     """M4: Start Spindle Counter-Clockwise"""
     #param_letters = set('S')  # S is it's own gcode, makes no sense to be here
     word_key = Word('M', 4)
-    modal_group = MODAL_GROUP_MAP['spindle']
 
 
 class GCodeStopSpindle(GCodeSpindle):
@@ -537,18 +561,20 @@ class GCodeOrientSpindle(GCodeSpindle):
     word_key = Word('M', 19)
 
 
-class GCodeSpindleConstantSurfaceSpeedMode(GCodeSpindle):
+class GCodeSpindleSpeedMode(GCodeSpindle):
+    modal_group = MODAL_GROUP_MAP['spindle_speed_mode']
+
+
+class GCodeSpindleConstantSurfaceSpeedMode(GCodeSpindleSpeedMode):
     """G96: Spindle Constant Surface Speed"""
     param_letters = set('DS')
     word_key = Word('G', 96)
-    modal_group = MODAL_GROUP_MAP['spindle_speed_mode']
 
 
-class GCodeSpindleRPMMode(GCodeSpindle):
+class GCodeSpindleRPMMode(GCodeSpindleSpeedMode):
     """G97: Spindle RPM Speed"""
     param_letters = set('D')
     word_key = Word('G', 97)
-    modal_group = MODAL_GROUP_MAP['spindle_speed_mode']
 
 
 
@@ -807,6 +833,7 @@ class GCodeFeedRate(GCodeOtherModal):
     @classmethod
     def word_matches(cls, w):
         return w.letter == 'F'
+    default_word = Word('F', 0)
     modal_group = MODAL_GROUP_MAP['feed_rate']
     exec_order = 40
 
@@ -816,6 +843,7 @@ class GCodeSpindleSpeed(GCodeOtherModal):
     @classmethod
     def word_matches(cls, w):
         return w.letter == 'S'
+    default_word = Word('S', 0)
     # Modal Group: (see description in GCodeFeedRate)
     modal_group = MODAL_GROUP_MAP['spindle_speed']
     exec_order = 50
@@ -826,6 +854,7 @@ class GCodeSelectTool(GCodeOtherModal):
     @classmethod
     def word_matches(cls, w):
         return w.letter == 'T'
+    default_word = Word('T', 0)
     # Modal Group: (see description in GCodeFeedRate)
     modal_group = MODAL_GROUP_MAP['tool']
     exec_order = 60
@@ -1052,6 +1081,7 @@ class GCodeGotoPredefinedPosition(GCodeNonModal):
     @classmethod
     def word_matches(cls, w):
         return (w.letter == 'G') and (w.value in [28, 30])
+    default_word = Word('G', 28)
     exec_order = 230
 
 
@@ -1060,6 +1090,7 @@ class GCodeSetPredefinedPosition(GCodeNonModal):
     @classmethod
     def word_matches(cls, w):
         return (w.letter == 'G') and (w.value in [28.1, 30.1])
+    default_word = Word('G', 28.1)
     exec_order = 230
 
 
@@ -1080,6 +1111,7 @@ class GCodeResetCoordSystemOffset(GCodeNonModal):
     @classmethod
     def word_matches(cls, w):
         return (w.letter == 'G') and (w.value in [92.1, 92.2])
+    default_word = Word('G', 92.1)
     exec_order = 230
 
     # TODO: machine.state.offset *= 0
@@ -1098,6 +1130,7 @@ class GCodeUserDefined(GCodeNonModal):
     #@classmethod
     #def word_matches(cls, w):
     #    return (w.letter == 'M') and (101 <= w.value <= 199)
+    #default_word = Word('M', 101)
     exec_order = 130
     modal_group = MODAL_GROUP_MAP['user_defined']
 
@@ -1171,6 +1204,7 @@ def build_maps():
     _gcode_maps_created = True
 
 
+# ======================= Words -> GCodes =======================
 def word_gcode_class(word, exhaustive=False):
     """
     Map word to corresponding GCode class
@@ -1179,7 +1213,7 @@ def word_gcode_class(word, exhaustive=False):
     :return: class inheriting GCode
     """
 
-    if _gcode_maps_created is False:
+    if not _gcode_maps_created:
         build_maps()
 
     # quickly eliminate parameters
@@ -1196,6 +1230,7 @@ def word_gcode_class(word, exhaustive=False):
             return gcode_class
 
     return None
+
 
 def words2gcodes(words):
     """
@@ -1257,3 +1292,51 @@ def words2gcodes(words):
         gcodes.append(gcode)
 
     return (gcodes, parameter_map[None])
+
+
+def text2gcodes(text):
+    """
+    Convert text to GCode instances (must be fully formed; no modal parameters)
+    :param text: line from a g-code file
+    :return: tuple([<GCode>, <GCode>, ...], list(<unused words>))
+    """
+    words = list(text2words(text))
+    (gcodes, modal_words) = words2gcodes(words)
+    if modal_words:
+        raise GCodeWordStrError("gcode text not fully formed, unassigned parameters: %r" % modal_words)
+    return gcodes
+
+
+# ======================= Utilities =======================
+
+def split_gcodes(gcode_list, splitter_class, sort_list=True):
+    """
+    Splits a list of GCode instances into 3, the center list containing the splitter_class gcode
+    :param gcode_list: list of GCode instances to split
+    :param splitter_class: class of gcode identifying split from left to right
+    :return: list of: [[<gcodes before splitter>], [<splitter instance>], [<gcodes after splitter>]]
+    """
+    # for example:
+    #     g_list = sorted([g1, g2, g3, g4])
+    #     split_gcodes(g_list, type(g2)) == [[g1], [g2], [g3, g4]]
+    # 3 lists are always returned, even if empty; if 2nd list is empty,
+    # then the 3rd will be as well.
+    if sort_list: # sort by execution order first
+        gcode_list = sorted(gcode_list)
+
+    split = [gcode_list, [], []]  # default (if no splitter can be found)
+
+    # Find splitter index (only one can be found)
+    split_index = None
+    for (i, gcode) in enumerate(gcode_list):
+        if isinstance(gcode, splitter_class):
+            split_index = i
+            break
+
+    # Form split: pivoting around split_index
+    if split_index is not None:
+        split[0] = gcode_list[:split_index]
+        split[1] = [gcode_list[split_index]]
+        split[2] = gcode_list[split_index+1:]
+
+    return split
