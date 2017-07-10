@@ -1,5 +1,6 @@
-from math import acos, atan2, pi, sqrt
+from math import acos, atan2, pi, sqrt, ceil
 
+from .gcodes import GCodeLinearMove
 from .gcodes import GCodeArcMove, GCodeArcMoveCW, GCodeArcMoveCCW
 from .gcodes import GCodePlaneSelect, GCodeSelectXYPlane, GCodeSelectYZPlane, GCodeSelectZXPlane
 from .gcodes import GCodeAbsoluteDistanceMode, GCodeIncrementalDistanceMode
@@ -15,12 +16,25 @@ from .utils import Vector3, Quaternion, plane_projection
 class ArcLinearizeMethod(object):
     pass
 
-    def __init__(self, max_error, radius):
+    def __init__(self, max_error, plane_normal,
+                 arc_p_start, arc_p_end, arc_p_center,
+                 arc_radius, arc_angle, helical_start, helical_end):
         self.max_error = max_error
-        self.radius = radius
+        self.plane_normal = plane_normal
+        self.arc_p_start = arc_p_start
+        self.arc_p_end = arc_p_end
+        self.arc_p_center = arc_p_center
+        self.arc_radius = arc_radius
+        self.arc_angle = arc_angle
+        self.helical_start = helical_start
+        self.helical_end = helical_end
 
     def get_max_wedge_angle(self):
         """Calculate angular coverage of a single line reaching maximum allowable error"""
+        raise NotImplementedError("not overridden")
+
+    def iter_vertices(self):
+        """Yield absolute (<start vertex>, <end vertex>) for each line for the arc"""
         raise NotImplementedError("not overridden")
 
 
@@ -34,9 +48,30 @@ class ArcLinearizeInside(ArcLinearizeMethod):
     #   - Simplest maths, easiest to explain & visually verify
 
     def get_max_wedge_angle(self):
-        return 2 * acos((self.radius - self.max_error) / self.radius)
+        return abs(2 * acos((self.arc_radius - self.max_error) / self.arc_radius))
 
+    def iter_vertices(self):
+        wedge_count = int(ceil(abs(self.arc_angle) / self.get_max_wedge_angle()))
+        wedge_angle = self.arc_angle / wedge_count
+        start_radius = self.arc_p_start - self.arc_p_center
+        helical_delta = (self.helical_end - self.helical_start) / wedge_count
 
+        l_p_start = start_radius + self.arc_p_center
+        l_start = l_p_start + self.helical_start
+        for i in range(wedge_count):
+            q_end = Quaternion.new_rotate_axis(
+                angle=wedge_angle * (i+1),
+                axis=-self.plane_normal,
+            )
+            # Projected on selected plane
+            l_p_end = (q_end * start_radius)  + self.arc_p_center
+            # Helical displacement
+            l_end = l_p_end + (self.helical_start + (helical_delta * (i+1)))
+
+            yield (l_start, l_end)
+
+            # start of next line is the end of this line
+            (l_p_start, l_start) = (l_p_end, l_end)
 
 
 
@@ -64,7 +99,7 @@ DEFAULT_LA_ARCDISTMODE = GCodeIncrementalArcDistanceMode
 
 def linearize_arc(arc_gcode, start_pos, plane=None, method_class=None,
                   dist_mode=None, arc_dist_mode=None,
-                  max_error=0.01, precision_fmt="{0:.3f}"):
+                  max_error=0.01, decimal_places=3):
     # set defaults
     if method_class is None:
         method_class = DEFAULT_LA_method_class
@@ -177,40 +212,56 @@ def linearize_arc(arc_gcode, start_pos, plane=None, method_class=None,
     #   - helical_start distance along plane.normal of arc start
     #   - helical_disp  distance along plane.normal of arc end
 
-    # TODO: debug printing
-    print((
-        "linearize_arc params\n"
-        "   - arc_p_start   {arc_p_start}\n"
-        "   - arc_p_end     {arc_p_end}\n"
-        "   - arc_p_center  {arc_p_center}\n"
-        "   - arc_radius    {arc_radius}\n"
-        "   - arc_angle     {arc_angle:.4f} ({arc_angle_deg:.3f} deg)\n"
-        "   - helical_start {helical_start}\n"
-        "   - helical_end   {helical_end}\n"
-    ).format(
-        arc_p_start=arc_p_start,
-        arc_p_end=arc_p_end,
-        arc_p_center=arc_p_center,
-        arc_radius=arc_radius,
-        arc_angle=arc_angle, arc_angle_deg=arc_angle * (180/pi),
-        helical_start=helical_start,
-        helical_end=helical_end,
-    ))
+    #print((
+    #    "linearize_arc params\n"
+    #    "   - arc_p_start   {arc_p_start}\n"
+    #    "   - arc_p_end     {arc_p_end}\n"
+    #    "   - arc_p_center  {arc_p_center}\n"
+    #    "   - arc_radius    {arc_radius}\n"
+    #    "   - arc_angle     {arc_angle:.4f} ({arc_angle_deg:.3f} deg)\n"
+    #    "   - helical_start {helical_start}\n"
+    #    "   - helical_end   {helical_end}\n"
+    #).format(
+    #    arc_p_start=arc_p_start,
+    #    arc_p_end=arc_p_end,
+    #    arc_p_center=arc_p_center,
+    #    arc_radius=arc_radius,
+    #    arc_angle=arc_angle, arc_angle_deg=arc_angle * (180/pi),
+    #    helical_start=helical_start,
+    #    helical_end=helical_end,
+    #))
 
+    method_class_params = {
+        'max_error': max_error,
+        'plane_normal': plane.normal,
+        'arc_p_start': arc_p_start,
+        'arc_p_end': arc_p_end,
+        'arc_p_center': arc_p_center,
+        'arc_radius': arc_radius,
+        'arc_angle': arc_angle,
+        'helical_start': helical_start,
+        'helical_end': helical_end,
+    }
+    method = method_class(**method_class_params)
 
-
-    method = method_class(
-        max_error=max_error,
-        radius=arc_radius,
-    )
-
-    #plane_projection(vect, normal)
-
-    pass
-    # Steps:
-    #   - calculate:
-    #       -
-    #   - calculate number of linear segments
+    #import ipdb; ipdb.set_trace()
+    if isinstance(dist_mode, GCodeAbsoluteDistanceMode):
+        # Absolute coordinates
+        for line_vertices in method.iter_vertices():
+            (l_start, l_end) = line_vertices
+            yield GCodeLinearMove(**dict(zip('XYZ', l_end.xyz)))
+    else:
+        # Incremental coordinates (beware cumulative errors)
+        cur_pos = arc_start
+        for line_vertices in method.iter_vertices():
+            (l_start, l_end) = line_vertices
+            l_delta = l_end - cur_pos
+            
+            # round delta coordinates (introduces errors)
+            for axis in 'xyz':
+                setattr(l_delta, axis, round(getattr(l_delta, axis), decimal_places))
+            yield GCodeLinearMove(**dict(zip('XYZ', l_delta.xyz)))
+            cur_pos += l_delta # mitigate errors by also adding them the accumulated cur_pos
 
 
 # ==================== Arc Precision Adjustment ====================

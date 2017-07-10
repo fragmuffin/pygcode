@@ -152,7 +152,7 @@ class GCode(object):
     # Execution Order
     exec_order = 999  # if not otherwise specified, run last
 
-    def __init__(self, *words):
+    def __init__(self, *words, **params):
         """
         :param word: Word instance defining gcode (eg: Word('G0') for rapid movement)
         :param params: list of Word instances (eg: Word('X-1.2') as x-coordinate)
@@ -170,6 +170,8 @@ class GCode(object):
         # Add Given Parameters
         for param_word in param_words:
             self.add_parameter(param_word)
+        for (k, v) in params.items():
+            self.add_parameter(Word(k, v))
 
     def __repr__(self):
         param_str = ''

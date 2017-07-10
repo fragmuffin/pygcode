@@ -16,7 +16,7 @@ def _clean_codestr(value):
     return "%g" % value
 
 CLEAN_NONE = lambda v: v
-CLEAN_FLOAT = lambda v: "%g" % v
+CLEAN_FLOAT = lambda v: "{0:g}".format(round(v, 3))
 CLEAN_CODE = _clean_codestr
 CLEAN_INT = lambda v: "%g" % v
 
