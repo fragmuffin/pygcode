@@ -8,6 +8,7 @@ for pygcode_lib_type in ('installed_lib', 'relative_lib'):
         from pygcode import GCodeArcMove, GCodeArcMoveCW, GCodeArcMoveCCW
         from pygcode import split_gcodes
         from pygcode.transform import linearize_arc
+        from pygcode.transform import ArcLinearizeInside, ArcLinearizeOutside, ArcLinearizeMid
 
     except ImportError:
         import sys, os, inspect
@@ -79,20 +80,36 @@ print(args)
 
 for line_str in args.infile[0].readlines():
     line = Line(line_str)
+    if line.comment:
+        print("===== %s" % line.comment.text)
 
     effective_gcodes = machine.block_modal_gcodes(line.block)
 
     if any(isinstance(g, GCodeArcMove) for g in effective_gcodes):
         print("---------> Found an Arc <----------")
-        (before, (arc,), after) = split_gcodes(effective_gcodes, GCodeArcMove)
-        if before:
-            print(gcodes2str(before))
-        print(str(arc))
-        if after:
-            print(gcodes2str(after))
+        (befores, (arc,), afters) = split_gcodes(effective_gcodes, GCodeArcMove)
+        # TODO: debug printing (for now)
+        if befores:
+            print("befores: %s" % gcodes2str(befores))
+            machine.process_gcodes(*befores)
+        print("arc: %s" % str(arc))
+        linearize_arc(
+            arc_gcode=arc,
+            start_pos=machine.pos,
+            plane=machine.mode.plane_selection,
+            method_class=ArcLinearizeInside,  # FIXME: selectable from args
+            dist_mode=machine.mode.distance,
+            arc_dist_mode=machine.mode.arc_ijk_distance,
+            max_error=args.precision,
+        )
+        machine.process_gcodes(arc)
+
+        if afters:
+            print("afters: %s" % gcodes2str(afters))
+            machine.process_gcodes(*afters)
+    else:
+        machine.process_block(line.block)
 
 
 
     print("%r, %s" % (sorted(line.block.gcodes), line.block.modal_params))
-
-    machine.process_block(line.block)

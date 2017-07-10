@@ -61,5 +61,6 @@ def plane_projection(vect, normal):
     :param normal: normal of plane to project on to (Vector3)
     :return: vect projected onto plane represented by normal
     """
+    # ref: https://en.wikipedia.org/wiki/Vector_projection
     n = normal.normalized()
-    return v - (n * v.dot(n))
+    return vect - (n * vect.dot(n))

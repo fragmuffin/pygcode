@@ -227,6 +227,17 @@ class GCode(object):
 
         self.params[word.letter] = word
 
+    # Assert Parameters
+    def assert_params(self):
+        """
+        Assert validity of gcode's parameters.
+        This verification is irrespective of machine, or machine's state;
+        verification is g-code language-based verification
+        :raises: GCodeParameterError
+        """
+        # to be overridden in inheriting classes
+        pass
+
     def __getattr__(self, key):
         # Return parameter values (if valid parameter for gcode)
         if key in self.param_letters:
@@ -333,6 +344,29 @@ class GCodeLinearMove(GCodeMotion):
 class GCodeArcMove(GCodeMotion):
     """Arc Move"""
     param_letters = GCodeMotion.param_letters | set('IJKRP')
+
+    def assert_params(self):
+        param_letters = set(self.params.keys())
+        # Parameter groups
+        params_xyz = set('XYZ') & set(param_letters)
+        params_ijk = set('IJK') & set(param_letters)
+        params_r = set('R') & set(param_letters)
+        params_ijkr = params_ijk | params_r
+
+        # --- Parameter Groups
+        # XYZ: at least 1
+        if not params_xyz:
+            raise GCodeParameterError("no XYZ parameters set for destination: %r" % arc_gcode)
+        # IJK or R: only in 1 group
+        if params_ijk and params_r:
+            raise GCodeParameterError("both IJK and R parameters defined: %r" % arc_gcode)
+        # IJKR: at least 1
+        if not params_ijkr:
+            raise GCodeParameterError("neither IJK or R parameters defined: %r" % arc_gcode)
+
+        # --- Parameter Values
+        if params_r and (self.R == 0):
+            raise GCodeParameterError("cannot plot a circle with a radius of zero: %r" % arc_gcode)
 
 
 class GCodeArcMoveCW(GCodeArcMove):
@@ -729,27 +763,27 @@ class GCodeSelectXYPlane(GCodePlaneSelect):
     """G17: select XY plane (default)"""
     word_key = Word('G', 17)
     quat = Quaternion()  # no effect
-    normal = Vector3(0, 0, 1)
+    normal = Vector3(0., 0., 1.)
 
 
 class GCodeSelectZXPlane(GCodePlaneSelect):
     """G18: select ZX plane"""
     word_key = Word('G', 18)
     quat = quat2coord_system(
-        Vector3(1, 0, 0), Vector3(0, 1, 0),
-        Vector3(0, 0, 1), Vector3(1, 0, 0)
+        Vector3(1., 0., 0.), Vector3(0., 1., 0.),
+        Vector3(0., 0., 1.), Vector3(1., 0., 0.)
     )
-    normal = Vector3(0, 1, 0)
+    normal = Vector3(0., 1., 0.)
 
 
 class GCodeSelectYZPlane(GCodePlaneSelect):
     """G19: select YZ plane"""
     word_key = Word('G', 19)
     quat = quat2coord_system(
-        Vector3(1, 0, 0), Vector3(0, 1, 0),
-        Vector3(0, 1, 0), Vector3(0, 0, 1)
+        Vector3(1., 0., 0.), Vector3(0., 1., 0.),
+        Vector3(0., 1., 0.), Vector3(0., 0., 1.)
     )
-    normal = Vector3(1, 0, 0)
+    normal = Vector3(1., 0., 0.)
 
 
 class GCodeSelectUVPlane(GCodePlaneSelect):

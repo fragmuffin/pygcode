@@ -52,6 +52,10 @@ class Position(object):
         self._value = defaultdict(lambda: 0.0, dict((k, 0.0) for k in self.axes))
         self._value.update(kwargs)
 
+    def update(self, **coords):
+        for (k, v) in coords.items():
+            setattr(self, k, v)
+
     # Attributes Get/Set
     def __getattr__(self, key):
         if key in self.axes:
@@ -428,8 +432,10 @@ class Machine(object):
     # =================== Machine Actions ===================
     def move_to(self, rapid=False, **coords):
         """Move machine to given position"""
-        given_position = Position(axes=self.axes, **coords)
         if isinstance(self.mode.distance, GCodeIncrementalDistanceMode):
-            self.pos += given_position
+            pos_delta = Position(axes=self.axes, **coords)
+            self.pos += pos_delta
         else:  # assumed: GCodeAbsoluteDistanceMode
-            self.pos = given_position
+            new_pos = self.pos
+            new_pos.update(**coords)  # only change given coordinates
+            self.pos = new_pos
