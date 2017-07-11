@@ -253,6 +253,16 @@ class GCode(object):
             key=key
         ))
 
+    def __setattr__(self, key, value):
+        if key in self.param_letters:
+            if key in self.params:
+                self.params[key].value = value
+            else:
+                self.add_parameter(Word(key, value))
+
+        else:
+            self.__dict__[key] = value
+
     @property
     def description(self):
         return self.__doc__

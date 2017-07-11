@@ -275,6 +275,11 @@ class Word(object):
             return self._value_class(self._value_str)
         return self._value
 
+    @value.setter
+    def value(self, new_value):
+        self._value = self._value_class(new_value)
+        self._value_str = None
+
     # Order
     def __lt__(self, other):
         return self.letter < other.letter
