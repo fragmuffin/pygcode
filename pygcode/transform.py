@@ -1,4 +1,4 @@
-from math import acos, atan2, pi, sqrt, ceil
+from math import cos, acos, atan2, pi, sqrt, ceil
 
 from .gcodes import GCodeLinearMove
 from .gcodes import GCodeArcMove, GCodeArcMoveCW, GCodeArcMoveCCW
@@ -14,8 +14,6 @@ from .utils import Vector3, Quaternion, plane_projection
 # ==================== Arcs (G2,G3) --> Linear Motion (G1) ====================
 
 class ArcLinearizeMethod(object):
-    pass
-
     def __init__(self, max_error, plane_normal,
                  arc_p_start, arc_p_end, arc_p_center,
                  arc_radius, arc_angle, helical_start, helical_end):
@@ -28,6 +26,9 @@ class ArcLinearizeMethod(object):
         self.arc_angle = arc_angle
         self.helical_start = helical_start
         self.helical_end = helical_end
+
+        if self.max_error > self.arc_radius:
+            self.max_error = self.arc_radius
 
     def get_max_wedge_angle(self):
         """Calculate angular coverage of a single line reaching maximum allowable error"""
@@ -56,7 +57,7 @@ class ArcLinearizeInside(ArcLinearizeMethod):
         start_radius = self.arc_p_start - self.arc_p_center
         helical_delta = (self.helical_end - self.helical_start) / wedge_count
 
-        l_p_start = start_radius + self.arc_p_center
+        l_p_start = self.arc_p_start
         l_start = l_p_start + self.helical_start
         for i in range(wedge_count):
             q_end = Quaternion.new_rotate_axis(
@@ -70,9 +71,8 @@ class ArcLinearizeInside(ArcLinearizeMethod):
 
             yield (l_start, l_end)
 
-            # start of next line is the end of this line
-            (l_p_start, l_start) = (l_p_end, l_end)
-
+            # start of next line is the end of this one
+            l_start = l_end
 
 
 class ArcLinearizeOutside(ArcLinearizeMethod):
@@ -82,6 +82,38 @@ class ArcLinearizeOutside(ArcLinearizeMethod):
     #       - pocket milling action will remove more material
     #       - perimeter milling action will remove less material
     #   - 1st and last lines are 1/2 length of the others
+
+    def get_max_wedge_angle(self):
+        return abs(2 * acos(self.arc_radius / (self.arc_radius + self.max_error)))
+
+    def iter_vertices(self):
+        # n wedges distributed like:
+        #   - 1/2 wedge : first line
+        #   - n-1 wedges : outer perimeter
+        #   - last 1/2 wedge : last line
+        wedge_count = int(ceil(abs(self.arc_angle) / self.get_max_wedge_angle()))
+        wedge_angle = self.arc_angle / wedge_count
+        start_radius = self.arc_p_start - self.arc_p_center
+        # radius of outer circle (across which the linear lines will span)
+        error_radius = start_radius.normalized() * (self.arc_radius / cos(wedge_angle / 2))
+
+        l_p_start = start_radius + self.arc_p_center
+        l_start = l_p_start + self.helical_start
+        for i in range(wedge_count):
+            cur_angle = (wedge_angle * i) + (wedge_angle / 2)
+            q_end = Quaternion.new_rotate_axis(angle=cur_angle, axis=-self.plane_normal)
+
+            # Projected on selected plane
+            l_p_end = (q_end * error_radius)  + self.arc_p_center
+            # Helical displacement
+            l_end = l_p_end + self.helical_start + ((self.helical_end - self.helical_start) * (cur_angle / self.arc_angle))
+
+            yield (l_start, l_end)
+
+            # start of next line is the end of this one
+            l_start = l_end
+
+        yield (l_start, self.arc_p_end + self.helical_end)
 
 
 class ArcLinearizeMid(ArcLinearizeMethod):
@@ -244,7 +276,7 @@ def linearize_arc(arc_gcode, start_pos, plane=None, method_class=None,
     }
     method = method_class(**method_class_params)
 
-    #import ipdb; ipdb.set_trace()
+    # Iterate & yield each linear line (start, end) vertices
     if isinstance(dist_mode, GCodeAbsoluteDistanceMode):
         # Absolute coordinates
         for line_vertices in method.iter_vertices():
@@ -256,7 +288,7 @@ def linearize_arc(arc_gcode, start_pos, plane=None, method_class=None,
         for line_vertices in method.iter_vertices():
             (l_start, l_end) = line_vertices
             l_delta = l_end - cur_pos
-            
+
             # round delta coordinates (introduces errors)
             for axis in 'xyz':
                 setattr(l_delta, axis, round(getattr(l_delta, axis), decimal_places))

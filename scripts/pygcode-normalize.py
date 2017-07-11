@@ -1,4 +1,11 @@
 #!/usr/bin/env python
+
+# Script to take (theoretically) any g-code file as input, and output a
+# normalized version of it.
+#
+# Script outcome can have cursory verification with:
+#   https://nraynaud.github.io/webgcode/
+
 import argparse
 import re
 from collections import defaultdict
@@ -37,7 +44,8 @@ parser.add_argument(
 
 parser.add_argument(
     '--precision', '-p', dest='precision', type=float, default=DEFAULT_PRECISION,
-    help="maximum positional error when generating gcodes (eg: arcs to lines)",
+    help="maximum positional error when generating gcodes (eg: arcs to lines) "
+         "(default: %g)" % DEFAULT_PRECISION,
 )
 
 # Machine
