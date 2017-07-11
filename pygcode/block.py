@@ -77,4 +77,4 @@ class Block(object):
             ))
 
     def __str__(self):
-        return ' '.join(str(x) for x in (self.gcodes + [p.clean_str for p in self.modal_params]))
+        return ' '.join(str(x) for x in (self.gcodes + self.modal_params))

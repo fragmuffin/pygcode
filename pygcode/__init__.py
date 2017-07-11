@@ -12,6 +12,7 @@ __all__ = [
 
     # GCodes
     'words2gcodes', 'text2gcodes', 'split_gcodes',
+    # $ python -c "from pygcode.gcodes import GCode, _subclasses as sc; print(',\\n    '.join(sorted('\\'%s\\'' % g.__name__ for g in sc(GCode))))"python -c "from pygcode.gcodes import GCode, _subclasses as sc; print(',\\n    '.join(sorted('\\'%s\\'' % g.__name__ for g in sc(GCode))))"
     'GCode',
     'GCodeAbsoluteArcDistanceMode',
     'GCodeAbsoluteDistanceMode',
@@ -133,7 +134,7 @@ __all__ = [
     'GCodeUseInches',
     'GCodeUseMillimeters',
     'GCodeUserDefined',
-    'GCodeWaitOnInput',
+    'GCodeWaitOnInput'
 ]
 
 # Machine
@@ -162,7 +163,7 @@ from .words import (
 from .gcodes import (
     words2gcodes, text2gcodes, split_gcodes,
 
-    # $ python -c "from pygcode.gcodes import _gcode_class_infostr; print(_gcode_class_infostr())"
+    # $ python -c "from pygcode.gcodes import _gcode_class_infostr as x; print(x(prefix='    # '))"
     #       - GCode:
     #         - GCodeCannedCycle:
     # G89       - GCodeBoringCycleDwellFeedOut: G89: Boring Cycle, Dwell, Feed Out
@@ -286,7 +287,7 @@ from .gcodes import (
     # G20       - GCodeUseInches: G20: use inches for length units
     # G21       - GCodeUseMillimeters: G21: use millimeters for length units
 
-    # $ python -c "from pygcode.gcodes import GCode, _subclasses; print(',\\n'.join(sorted(g.__name__ for g in _subclasses(GCode))))"python -c "from pygcode.gcodes import GCode, _subclasses; print(',\\n'.join(sorted(g.__name__ for g in _subclasses(GCode))))"
+    # $ python -c "from pygcode.gcodes import GCode, _subclasses as sc; print(',\\n    '.join(sorted(g.__name__ for g in sc(GCode))))"
     GCode,
     GCodeAbsoluteArcDistanceMode,
     GCodeAbsoluteDistanceMode,
@@ -408,5 +409,5 @@ from .gcodes import (
     GCodeUseInches,
     GCodeUseMillimeters,
     GCodeUserDefined,
-    GCodeWaitOnInput,
+    GCodeWaitOnInput
 )

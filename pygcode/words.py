@@ -208,34 +208,20 @@ class Word(object):
             (letter, value) = args
         else:
             # Word('G90')
-            word_str = args[0]
-            letter = word_str[0] # first letter
-            value = word_str[1:] # rest of string
+            letter = args[0][0] # first letter
+            value = args[0][1:] # rest of string
+        letter = letter.upper()
 
-        self.letter = letter.upper()
+        self._value_class = WORD_MAP[letter]['class']
+        self._value_clean = WORD_MAP[letter]['clean_value']
 
-        self._value_str = None
-        self._value = None
-        if isinstance(value, six.string_types):
-            self._value_str = value
-        else:
-            self._value = value
-
-        self._value_class = WORD_MAP[self.letter]['class']
-        self._value_clean = WORD_MAP[self.letter]['clean_value']
+        self.letter = letter
+        self._value = self._value_class(value)
 
     def __str__(self):
         return "{letter}{value}".format(
             letter=self.letter,
             value=self.value_str,
-        )
-
-    @property
-    def clean_str(self):
-        """same as __str__ but with a cleaned value (eg: X.4 is X0.4)"""
-        return "{letter}{value}".format(
-            letter=self.letter,
-            value=self.value_cleanstr,
         )
 
     def __repr__(self):
@@ -255,30 +241,19 @@ class Word(object):
     def __hash__(self):
         return hash((self.letter, self.value))
 
-
-    # Value Properties
     @property
     def value_str(self):
-        """Value string, or string representation of value"""
-        if self._value_str is None:
-            return str(self._value)
-        return self._value_str
-
-    @property
-    def value_cleanstr(self):
         """Clean string representation, for consistent file output"""
         return self._value_clean(self.value)
 
+    # Value Properties
     @property
     def value(self):
-        if self._value is None:
-            return self._value_class(self._value_str)
         return self._value
 
     @value.setter
     def value(self, new_value):
         self._value = self._value_class(new_value)
-        self._value_str = None
 
     # Order
     def __lt__(self, other):

@@ -191,11 +191,11 @@ class GCode(object):
         param_str = ''
         if self.params:
             param_str += ' ' + ' '.join([
-                "{}".format(self.params[k].clean_str)
+                "{}".format(self.params[k])
                 for k in sorted(self.params.keys())
             ])
         return "{gcode}{parameters}".format(
-            gcode=self.word.clean_str,
+            gcode=self.word,
             parameters=param_str,
         )
 
@@ -1237,7 +1237,7 @@ def _subclasses(root_class):
         yield cls
 
 
-def _gcode_class_infostr(base_class=GCode):
+def _gcode_class_infostr(base_class=GCode, prefix=''):
     """
     List all ineheriting classes for the given gcode class
     :param base_class: root of hierarcy
@@ -1247,8 +1247,9 @@ def _gcode_class_infostr(base_class=GCode):
     for (cls, level) in _subclasses_level(base_class):
         word_str = ''
         if cls.word_key:
-            word_str = cls.word_key.clean_str
-        info_str += "{word} {indent}- {name}: {description}\n".format(
+            word_str = str(cls.word_key)
+        info_str += "{prefix}{word} {indent}- {name}: {description}\n".format(
+            prefix=prefix,
             word="%-5s" % word_str,
             indent=(level * "  "),
             name=cls.__name__,
