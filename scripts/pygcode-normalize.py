@@ -157,7 +157,3 @@ for line_str in args.infile[0].readlines():
     else:
         print(str(line))
         machine.process_block(line.block)
-
-
-
-    #print("%r, %s" % (sorted(line.block.gcodes), line.block.modal_params))

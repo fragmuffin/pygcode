@@ -76,5 +76,10 @@ class Block(object):
                 key=k
             ))
 
+    def __bool__(self):
+        return bool(self.words)
+
+    __nonzero__ = __bool__  # python < 3 compatability
+
     def __str__(self):
         return ' '.join(str(x) for x in (self.gcodes + self.modal_params))

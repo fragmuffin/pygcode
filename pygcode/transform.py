@@ -244,25 +244,6 @@ def linearize_arc(arc_gcode, start_pos, plane=None, method_class=None,
     #   - helical_start distance along plane.normal of arc start
     #   - helical_disp  distance along plane.normal of arc end
 
-    #print((
-    #    "linearize_arc params\n"
-    #    "   - arc_p_start   {arc_p_start}\n"
-    #    "   - arc_p_end     {arc_p_end}\n"
-    #    "   - arc_p_center  {arc_p_center}\n"
-    #    "   - arc_radius    {arc_radius}\n"
-    #    "   - arc_angle     {arc_angle:.4f} ({arc_angle_deg:.3f} deg)\n"
-    #    "   - helical_start {helical_start}\n"
-    #    "   - helical_end   {helical_end}\n"
-    #).format(
-    #    arc_p_start=arc_p_start,
-    #    arc_p_end=arc_p_end,
-    #    arc_p_center=arc_p_center,
-    #    arc_radius=arc_radius,
-    #    arc_angle=arc_angle, arc_angle_deg=arc_angle * (180/pi),
-    #    helical_start=helical_start,
-    #    helical_end=helical_end,
-    #))
-
     method_class_params = {
         'max_error': max_error,
         'plane_normal': plane.normal,
