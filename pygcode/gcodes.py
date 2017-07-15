@@ -167,6 +167,10 @@ class GCode(object):
         self.word = gcode_word
         self.params = {}
 
+        # Whitespace as prefix
+        #   if True, str(self) will repalce self.word code with whitespace
+        self._whitespace_prefix = False
+
         # Add Given Parameters
         for param_word in param_words:
             self.add_parameter(param_word)
@@ -194,8 +198,11 @@ class GCode(object):
                 "{}".format(self.params[k])
                 for k in sorted(self.params.keys())
             ])
-        return "{gcode}{parameters}".format(
-            gcode=self.word,
+        word_str = str(self.word)
+        if self._whitespace_prefix:
+            word_str = ' ' * len(word_str)
+        return "{word_str}{parameters}".format(
+            word_str=word_str,
             parameters=param_str,
         )
 
@@ -468,36 +475,42 @@ class GCodeDrillingCycle(GCodeCannedCycle):
     """G81: Drilling Cycle"""
     param_letters = GCodeCannedCycle.param_letters | set('RLP')
     word_key = Word('G', 81)
+    modal_param_letters = GCodeCannedCycle.param_letters | set('RLP')
 
 
 class GCodeDrillingCycleDwell(GCodeCannedCycle):
     """G82: Drilling Cycle, Dwell"""
     param_letters = GCodeCannedCycle.param_letters | set('RLP')
     word_key = Word('G', 82)
+    modal_param_letters = GCodeCannedCycle.param_letters | set('RLP')
 
 
 class GCodeDrillingCyclePeck(GCodeCannedCycle):
     """G83: Drilling Cycle, Peck"""
     param_letters = GCodeCannedCycle.param_letters | set('RLQ')
     word_key = Word('G', 83)
+    modal_param_letters = GCodeCannedCycle.param_letters | set('RLQ')
 
 
 class GCodeDrillingCycleChipBreaking(GCodeCannedCycle):
     """G73: Drilling Cycle, ChipBreaking"""
     param_letters = GCodeCannedCycle.param_letters | set('RLQ')
     word_key = Word('G', 73)
+    modal_param_letters = GCodeCannedCycle.param_letters | set('RLQ')
 
 
 class GCodeBoringCycleFeedOut(GCodeCannedCycle):
     """G85: Boring Cycle, Feed Out"""
     param_letters = GCodeCannedCycle.param_letters | set('RLP')
     word_key = Word('G', 85)
+    modal_param_letters = GCodeCannedCycle.param_letters | set('RLP')
 
 
 class GCodeBoringCycleDwellFeedOut(GCodeCannedCycle):
     """G89: Boring Cycle, Dwell, Feed Out"""
     param_letters = GCodeCannedCycle.param_letters | set('RLP')
     word_key = Word('G', 89)
+    modal_param_letters = GCodeCannedCycle.param_letters | set('RLP')
 
 
 class GCodeThreadingCycle(GCodeCannedCycle):
@@ -560,6 +573,7 @@ class GCodeLatheRadiusMode(GCodeDistanceMode):
 class GCodeFeedRateMode(GCode):
     modal_group = MODAL_GROUP_MAP['feed_rate_mode']
     exec_order = 30
+
 
 class GCodeInverseTimeMode(GCodeFeedRateMode):
     """G93: Inverse Time Mode"""
@@ -883,14 +897,22 @@ class GCodePathBlendingMode(GCodePathControlMode):
 # CODE              PARAMETERS          DESCRIPTION
 # G98                                   Canned Cycle Return Level
 
+
 class GCodeCannedReturnMode(GCode):
     modal_group = MODAL_GROUP_MAP['canned_cycles_return']
     exec_order = 220
 
 
 class GCodeCannedCycleReturnLevel(GCodeCannedReturnMode):
-    """G98: Canned Cycle Return Level"""
+    """G98: Canned Cycle Return to the level set prior to cycle start"""
+    # "retract to the position that axis was in just before this series of one or more contiguous canned cycles was started"
     word_key = Word('G', 98)
+
+
+class GCodeCannedCycleReturnToR(GCodeCannedReturnMode):
+    """G99: Canned Cycle Return to the level set by R"""
+    # "retract to the position specified by the R word of the canned cycle"
+    word_key = Word('G', 99)
 
 
 # ======================= Other Modal Codes =======================

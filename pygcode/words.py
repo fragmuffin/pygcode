@@ -216,7 +216,7 @@ class Word(object):
         self._value_clean = WORD_MAP[letter]['clean_value']
 
         self.letter = letter
-        self._value = self._value_class(value)
+        self.value = value
 
     def __str__(self):
         return "{letter}{value}".format(
@@ -230,6 +230,20 @@ class Word(object):
             string=str(self),
         )
 
+    # Sorting
+    def __lt__(self, other):
+        return (self.letter, self.value) < (other.letter, other.value)
+
+    def __gt__(self, other):
+        return (self.letter, self.value) > (other.letter, other.value)
+
+    def __le__(self, other):
+        return (self.letter, self.value) <= (other.letter, other.value)
+
+    def __ge__(self, other):
+        return (self.letter, self.value) >= (other.letter, other.value)
+
+    # Equality
     def __eq__(self, other):
         if isinstance(other, six.string_types):
             other = str2word(other)
@@ -238,6 +252,7 @@ class Word(object):
     def __ne__(self, other):
         return not self.__eq__(other)
 
+    # Hashing
     def __hash__(self):
         return hash((self.letter, self.value))
 
@@ -254,10 +269,6 @@ class Word(object):
     @value.setter
     def value(self, new_value):
         self._value = self._value_class(new_value)
-
-    # Order
-    def __lt__(self, other):
-        return self.letter < other.letter
 
     @property
     def description(self):

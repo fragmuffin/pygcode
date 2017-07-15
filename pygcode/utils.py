@@ -1,4 +1,5 @@
 import sys
+from copy import copy, deepcopy
 
 if sys.version_info < (3, 0):
     from euclid import Vector3, Quaternion
@@ -64,3 +65,32 @@ def plane_projection(vect, normal):
     # ref: https://en.wikipedia.org/wiki/Vector_projection
     n = normal.normalized()
     return vect - (n * vect.dot(n))
+
+# ==================== GCode Utilities ====================
+
+def omit_redundant_modes(gcode_iter):
+    """
+    Replace redundant machine motion modes with whitespace,
+    :param gcode_iter: iterable to return with modifications
+    """
+
+    from .machine import Machine, Mode
+    from .gcodes import MODAL_GROUP_MAP
+    class NullModeMachine(Machine):
+        MODE_CLASS = type('NullMode', (Mode,), {'default_mode': ''})
+    m = NullModeMachine()
+
+    for g in gcode_iter:
+        if (g.modal_group is not None) and (m.mode.modal_groups[g.modal_group] is not None):
+            # g-code has a modal groups, and the machine's mode
+            # (of the same modal group) is not None
+            if m.mode.modal_groups[g.modal_group].word == g.word:
+                # machine's mode & g-code's mode match (no machine change)
+                if g.modal_group == MODAL_GROUP_MAP['motion']:
+                    # finally: g-code sets a motion mode in the machine
+                    g = copy(g) # duplicate gcode object
+                    # stop redundant g-code word from being printed
+                    g._whitespace_prefix = True
+
+        m.process_gcodes(g)
+        yield g
