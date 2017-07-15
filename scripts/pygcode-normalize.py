@@ -9,6 +9,7 @@
 import argparse
 import re
 from collections import defaultdict
+from contextlib import contextmanager
 
 for pygcode_lib_type in ('installed_lib', 'relative_lib'):
     try:
@@ -157,48 +158,61 @@ def gcodes2str(gcodes):
     return ' '.join("%s" % g for g in gcodes)
 
 
+@contextmanager
+def split_and_process(gcode_list, gcode_class, comment):
+    """
+    Split gcodes by given class, yields given class instance
+    :param gcode_list: list of GCode instances
+    :param gcode_class: class inheriting from GCode (directly, or indirectly)
+    :param comment: Comment instance, or None
+    """
+    (befores, (g,), afters) = split_gcodes(gcode_list, gcode_class)
+    # print & process those before gcode_class instance
+    if befores:
+        print(gcodes2str(befores))
+        machine.process_gcodes(*befores)
+    # yield, then process gcode_class instance
+    yield g
+    machine.process_gcodes(g)
+    # print & process those after gcode_class instance
+    if afters:
+        print(gcodes2str(afters))
+        machine.process_gcodes(*afters)
+    # print comment (if given)
+    if comment:
+        print(str(line.comment))
+
+
 # =================== Process File ===================
 
 for line_str in args.infile[0].readlines():
     line = Line(line_str)
-    #if line.comment:
-    #    print("===== %s" % line.comment.text)
 
+    # Effective G-Codes:
+    #   fills in missing motion modal gcodes (using machine's current motion mode).
     effective_gcodes = machine.block_modal_gcodes(line.block)
 
     if args.arc_linearize and any(isinstance(g, GCodeArcMove) for g in effective_gcodes):
-        #print("---------> Found an Arc <----------")
-        (befores, (arc,), afters) = split_gcodes(effective_gcodes, GCodeArcMove)
-        # TODO: debug printing (for now)
-        if befores:
-            print(gcodes2str(befores))
-            machine.process_gcodes(*befores)
-        #print("arc: %s" % str(arc))
-        print(Comment("linearized: %r" % arc))
-        linearize_params = {
-            'arc_gcode': arc,
-            'start_pos': machine.pos,
-            'plane': machine.mode.plane_selection,
-            'method_class': args.arc_lin_method[arc.word],
-            'dist_mode': machine.mode.distance,
-            'arc_dist_mode': machine.mode.arc_ijk_distance,
-            'max_error': args.precision,
-            'decimal_places': 3,
-        }
-        for linear_gcode in omit_redundant_modes(linearize_arc(**linearize_params)):
-            print(linear_gcode)
-        machine.process_gcodes(arc)
-
-        if afters:
-            print(gcodes2str(afters))
-            machine.process_gcodes(*afters)
-        if line.comment:
-            print(str(line.comment))
+        with split_and_process(effective_gcodes, GCodeArcMove, line.comment) as arc:
+            linearize_params = {
+                'arc_gcode': arc,
+                'start_pos': machine.pos,
+                'plane': machine.mode.plane_selection,
+                'method_class': args.arc_lin_method[arc.word],
+                'dist_mode': machine.mode.distance,
+                'arc_dist_mode': machine.mode.arc_ijk_distance,
+                'max_error': args.precision,
+                'decimal_places': 3,
+            }
+            for linear_gcode in omit_redundant_modes(linearize_arc(**linearize_params)):
+                print(linear_gcode)
 
     elif args.canned_simplify and any((g.word in args.canned_codes) for g in effective_gcodes):
         (befores, (canned,), afters) = split_gcodes(effective_gcodes, GCodeCannedCycle)
         print(Comment('canning simplified: %r' % canned))
+
         # TODO: simplify canned things
+
         print(str(line))
         machine.process_block(line.block)
 
