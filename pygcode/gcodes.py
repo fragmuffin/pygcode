@@ -475,13 +475,13 @@ class GCodeCannedCycle(GCode):
 
     def _process(self, machine):
         moveto_coords = self.get_param_dict(letters=machine.axes)
-        if isinstance(machine.mode., GCodeCannedCycleReturnToR):
+        if isinstance(machine.mode.canned_cycles_return, GCodeCannedCycleReturnToR):
             # canned return is to this.R, not this.Z (plane dependent)
             moveto_coords.update({
                 machine.mode.plane_selection.normal_axis: this.R,
             })
 
-        machine.mode_to(**moveto_coords)
+        machine.move_to(**moveto_coords)
 
 
 class GCodeDrillingCycle(GCodeCannedCycle):
