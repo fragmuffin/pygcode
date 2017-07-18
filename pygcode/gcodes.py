@@ -305,7 +305,7 @@ class GCode(object):
         :return: GCodeEffect instance; effect the gcode just had on machine
         """
         from .machine import Machine  # importing up (done live to avoid dependency loop)
-        assert isinstance(machine, Machine), "invalid parameter"
+        assert isinstance(machine, Machine), "invalid machine type: %r" % machine
 
         # Set mode
         self._process_mode(machine)
@@ -400,10 +400,13 @@ class GCodeArcMoveCCW(GCodeArcMove):
 
 class GCodeDwell(GCodeMotion):
     """G4: Dwell"""
-    param_letters = GCodeMotion.param_letters | set('P')
+    param_letters = set('P')  # doesn't accept axis parameters
     word_key = Word('G', 4)
     modal_group = None  # one of the few motion commands that isn't modal
     exec_order = 140
+
+    def _process(self, machine):
+        pass  # no movements made
 
 
 class GCodeCublcSpline(GCodeMotion):
@@ -469,6 +472,16 @@ class GCodeCannedCycle(GCode):
     param_letters = set('XYZUVW')
     modal_group = MODAL_GROUP_MAP['motion']
     exec_order = 241
+
+    def _process(self, machine):
+        moveto_coords = self.get_param_dict(letters=machine.axes)
+        if isinstance(machine.mode., GCodeCannedCycleReturnToR):
+            # canned return is to this.R, not this.Z (plane dependent)
+            moveto_coords.update({
+                machine.mode.plane_selection.normal_axis: this.R,
+            })
+
+        machine.mode_to(**moveto_coords)
 
 
 class GCodeDrillingCycle(GCodeCannedCycle):
@@ -782,6 +795,7 @@ class GCodePlaneSelect(GCode):
 
     # -- Plane Normal
     # Vector normal to plane (such that XYZ axes follow the right-hand rule)
+    normal_axis = None  # Letter of normal axis (upper case)
     normal = None  # Vector3
 
 
@@ -789,6 +803,7 @@ class GCodeSelectXYPlane(GCodePlaneSelect):
     """G17: select XY plane (default)"""
     word_key = Word('G', 17)
     quat = Quaternion()  # no effect
+    normal_axis = 'Z'
     normal = Vector3(0., 0., 1.)
 
 
@@ -799,6 +814,7 @@ class GCodeSelectZXPlane(GCodePlaneSelect):
         Vector3(1., 0., 0.), Vector3(0., 1., 0.),
         Vector3(0., 0., 1.), Vector3(1., 0., 0.)
     )
+    normal_axis = 'Y'
     normal = Vector3(0., 1., 0.)
 
 
@@ -809,6 +825,7 @@ class GCodeSelectYZPlane(GCodePlaneSelect):
         Vector3(1., 0., 0.), Vector3(0., 1., 0.),
         Vector3(0., 1., 0.), Vector3(0., 0., 1.)
     )
+    normal_axis = 'X'
     normal = Vector3(1., 0., 0.)
 
 
@@ -1449,9 +1466,9 @@ def split_gcodes(gcode_list, splitter_class, sort_list=True):
 def _gcodes_abs2rel(start_pos, dist_mode=None, axes='XYZ'):
     """
     Decorator to convert returned motion gcode coordinates to incremental.
-    Intended to be used internally (mainly because it's a little shonky)
-    Decorated function is only expected to return GCodeRapidMove or GCodeLinearMove
-    instances
+    Intended to be used internally (mainly because it's a little shonky).
+    Function being decorated is only expected to return GCodeRapidMove or
+    GCodeLinearMove instances.
     :param start_pos: starting machine position (Position)
     :param dist_mode: machine's distance mode (GCodeAbsoluteDistanceMode or GCodeIncrementalDistanceMode)
     :param axes: axes machine accepts (set)
