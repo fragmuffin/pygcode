@@ -1,18 +1,26 @@
-# pygcode
+pygcode
+=======
+
 GCODE Parser for Python
 
-Currently in development, this is planned to be a pythonic interpreter and encoder for g-code.
-I'll be learning along the way, but the plan is to follow the lead of [GRBL](https://github.com/gnea/grbl).
+Currently in development, this is planned to be a pythonic interpreter
+and encoder for g-code. I'll be learning along the way, but the plan is
+to follow the lead of `GRBL <https://github.com/gnea/grbl>`__.
 
-## Installation
+Installation
+------------
 
-`pip install pygcode`
+``pip install pygcode``
 
-FIXME: well, that's the plan... give me some time to get it going though.
+FIXME: well, that's the plan... give me some time to get it going
+though.
 
-## Usage
+Usage
+-----
 
 Just brainstorming here...
+
+::
 
     import pygcode
     import math
@@ -64,10 +72,15 @@ Just brainstorming here...
     gfile_in.close()
     gfile_out.close()
 
+Supported G-Codes
+-----------------
 
-## Supported G-Codes
-GCode support is planned to follow that of [GRBL](https://github.com/gnea/grbl) which follows [LinuxCNC](http://linuxcnc.org) (list of gcodes documented [here](http://linuxcnc.org/docs/html/gcode.html)).
+GCode support is planned to follow that of
+`GRBL <https://github.com/gnea/grbl>`__ which follows
+`LinuxCNC <http://linuxcnc.org>`__ (list of gcodes documented
+`here <http://linuxcnc.org/docs/html/gcode.html>`__).
 
-But anything pre v1.0 will be a sub-set, focusing on the issues I'm having... I'm selfish that way.
+But anything pre v1.0 will be a sub-set, focusing on the issues I'm
+having... I'm selfish that way.
 
 TBD: list of gcodes (also as a TODO list)
