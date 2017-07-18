@@ -1,3 +1,27 @@
+# =========================== Package Information ===========================
+# Version Planning:
+#   0.1.x               - Development Status :: 2 - Pre-Alpha
+#   0.2.x               - Development Status :: 3 - Alpha
+#   0.3.x               - Development Status :: 4 - Beta
+#   1.x                 - Development Status :: 5 - Production/Stable
+#   <any above>.y       - developments on that version (pre-release)
+#   <any above>*.dev    - development release (intended purely to test deployment)
+__version__ = "0.1.0.dev"
+
+__title__ = "pygcode"
+__description__ = "Basic g-code parser, interpreter, and encoder library."
+__url__ = "https://github.com/fragmuffin/pygcode"
+
+__author__ = "Peter Boin"
+__email__ = "peter.boin@gmail.com"
+
+__license__ = "GPLv3"
+
+# not text-parsable
+__copyright__ = "Copyright (c) 2017 {0}".format(__author__)
+
+
+# =========================== Imports ===========================
 __all__ = [
     # Machine
     'Machine', 'Position', 'CoordinateSystem', 'State', 'Mode',
@@ -12,7 +36,7 @@ __all__ = [
 
     # GCodes
     'words2gcodes', 'text2gcodes', 'split_gcodes',
-    # $ python -c "from pygcode.gcodes import GCode, _subclasses as sc; print(',\\n    '.join(sorted('\\'%s\\'' % g.__name__ for g in sc(GCode))))"python -c "from pygcode.gcodes import GCode, _subclasses as sc; print(',\\n    '.join(sorted('\\'%s\\'' % g.__name__ for g in sc(GCode))))"
+    # $ python -c "from pygcode.gcodes import GCode, _subclasses as sc; print(',\\n    '.join(sorted('\\'%s\\'' % g.__name__ for g in sc(GCode))))"
     'GCode',
     'GCodeAbsoluteArcDistanceMode',
     'GCodeAbsoluteDistanceMode',
@@ -30,6 +54,7 @@ __all__ = [
     'GCodeCancelToolLengthOffset',
     'GCodeCannedCycle',
     'GCodeCannedCycleReturnLevel',
+    'GCodeCannedCycleReturnToR',
     'GCodeCannedReturnMode',
     'GCodeCoolant',
     'GCodeCoolantFloodOn',
@@ -174,7 +199,8 @@ from .gcodes import (
     # G83       - GCodeDrillingCyclePeck: G83: Drilling Cycle, Peck
     # G76       - GCodeThreadingCycle: G76: Threading Cycle
     #         - GCodeCannedReturnMode:
-    # G98       - GCodeCannedCycleReturnLevel: G98: Canned Cycle Return Level
+    # G98       - GCodeCannedCycleReturnLevel: G98: Canned Cycle Return to the level set prior to cycle start
+    # G99       - GCodeCannedCycleReturnToR: G99: Canned Cycle Return to the level set by R
     #         - GCodeCoolant:
     # M08       - GCodeCoolantFloodOn: M8: turn flood coolant on
     # M07       - GCodeCoolantMistOn: M7: turn mist coolant on
@@ -305,6 +331,7 @@ from .gcodes import (
     GCodeCancelToolLengthOffset,
     GCodeCannedCycle,
     GCodeCannedCycleReturnLevel,
+    GCodeCannedCycleReturnToR,
     GCodeCannedReturnMode,
     GCodeCoolant,
     GCodeCoolantFloodOn,
