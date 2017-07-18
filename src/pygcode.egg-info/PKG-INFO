@@ -1,0 +1,254 @@
+Metadata-Version: 1.1
+Name: pygcode
+Version: 0.1.0
+Summary: Basic g-code parser, interpreter, and encoder library.
+Home-page: https://github.com/fragmuffin/pygcode
+Author: Peter Boin
+Author-email: peter.boin@gmail.com
+License: GPLv3
+Description: =======
+        pygcode
+        =======
+        
+        GCODE Parser for Python
+        
+        Currently in development, ``pygcode`` is a low-level GCode interpreter
+        for python.
+        
+        Installation
+        ============
+        
+        Using `PyPi <https://pypi.python.org/pypi/pydemia>`__:
+        
+        ``pip install pygcode``
+        
+        Usage
+        =====
+        
+        Just brainstorming here...
+        
+        Writing GCode
+        -------------
+        
+        Writing gcode from python object instances to text
+        
+        ::
+        
+            >>> from pygcode import *
+            >>> gcodes = [
+            ...     GCodeRapidMove(Z=5),
+            ...     GCodeStartSpindleCW(),
+            ...     GCodeRapidMove(X=10, Y=20),
+            ...     GCodeFeedRate(200),
+            ...     GCodeLinearMove(Z=-1.5),
+            ...     GCodeRapidMove(Z=5),
+            ...     GCodeStopSpindle(),
+            ... ]
+            >>> print('\n'.join(str(g) for g in gcodes))
+        
+            G00 Z5
+            M03
+            G00 X10 Y20
+            F200
+            G01 Z-1.5
+            G00 Z5
+            M05
+        
+        
+        To plot along a lines of vectors, you could write...
+        
+        ::
+        
+            >>> from pygcode import *
+            >>> from euclid import Vector3
+        
+            >>> vectors = [
+            ...     Vector3(0, 0, 0),
+            ...     Vector3(10, 0, 0),
+            ...     Vector3(10, 20, 0),
+            ...     Vector3(10, 20, 3),
+            ...     Vector3(0, 20, 3),
+            ...     Vector3(0, 0, 3),
+            ...     Vector3(0, 0, 0)
+            ... ]
+        
+            >>> to_coords = lambda v: {'X': v.x, 'Y': v.y, 'Z': v.z}
+            >>> for v in vectors:
+            ...     print("%s" % GCodeLinearMove(**to_coords(v)))
+        
+            G01 X0 Y0 Z0
+            G01 X10 Y0 Z0
+            G01 X10 Y20 Z0
+            G01 X10 Y20 Z3
+            G01 X0 Y20 Z3
+            G01 X0 Y0 Z3
+            G01 X0 Y0 Z0
+        
+        
+        Reading / Interpreting GCode
+        ----------------------------
+        
+        To read gcode from a file, utilise the ``Line`` class.
+        Each ``Line`` instance contains a ``Block`` and an optional ``Comment``.
+        The ``Block`` contains a list of gcodes you're after.
+        
+        ::
+        
+            from pygcode import Line
+        
+            with open('part.gcode', 'r') as fh:
+                for line_text in fh.readlines():
+                    line = Line(line_text)
+        
+                    print(line)  # will print the line (with cosmetic changes)
+                    line.block.gcodes  # is your list of gcodes
+                    line.block.modal_params  # are all parameters not assigned to a gcode, assumed to be motion modal parameters
+                    if line.comment:
+                        line.comment.text  # your comment text
+        
+        To elaborate, here are some line examples
+        
+        ::
+        
+            >>> from pygcode import Line
+        
+            >>> line = Line('G01 x1 y2  f100 s1000 ; blah')
+            >>> print(line)
+            G01 X1 Y2 F100 S1000 ; blah
+            >>> print(line.block)
+            G01 X1 Y2 F100 S1000
+            >>> print(line.comment)
+            ; blah
+        
+            >>> line = Line('G0 x1 y2 (foo) f100 (bar) s1000')
+            >>> print(line)
+            G00 X1 Y2 F100 S1000 (foo. bar)
+            >>> print(line.comment)
+            (foo. bar)
+        
+        
+        Interpreting what a line of gcode does depends on the machine it's running on,
+        and also that machine's state (or 'mode')
+        
+        The simple line of a rapid move to ``x=10, y=10`` may be ``G00 X10 Y10``.
+        However, if the machine in question is in "Incremental Motion" mode ``G91`` then
+        the machine will only end up at ``x=10, y=10`` if it started at ``x=0, y=0``
+        
+        So, GCode interpretation is done via a virtual machine:
+        
+        ::
+        
+            >>> from pygcode import Machine, GCodeRapidMove
+        
+            >>> m = Machine()
+            >>> m.pos
+            <Position: X0 Y0 Z0>
+            >>> g = GCodeRapidMove(X=10, Y=20)
+            >>> m.process_gcodes(g)
+            >>> m.pos
+            <Position: X10 Y20 Z0>
+            >>> m.process_gcodes(g)
+            >>> m.pos
+            <Position: X10 Y20 Z0>   # same position; machine in absolute mode
+            >>> m.mode.distance
+            <GCodeAbsoluteDistanceMode: G90>  # see
+        
+            >>> m.process_gcodes(GCodeIncrementalDistanceMode())
+            >>> m.process_gcodes(g)  # same gcode as above
+            >>> m.pos
+            <Position: X20 Y40 Z0>
+        
+        all valid ``m.mode`` attributes can be found with ``from pygcode.gcodes import MODAL_GROUP_MAP; MODAL_GROUP_MAP.keys()``
+        
+        Also note that the order codes are interpreted is important.
+        For example, the following code is WRONG
+        
+        ::
+        
+            from pygcode import Machine, Line
+            m = Machine()
+            line = Line('G0 x10 y10 G91')
+            m.process_gcodes(*line.block.gcodes)  # WRONG!
+        
+        This will process the movement to ``x=10, y=10``, and **then** it will change the
+        distance mode to *Incremental*... there are 2 ways to do this correctly.
+        
+        - ``m.process_gcodes(*sorted(line.block.gcodes))``, or simply
+        - ``m.process_block(line.block)``
+        
+        sorting a list of gcodes will sort them in execution order (as specified by
+        `LinuxCNC's order of execution <http://linuxcnc.org/docs/html/gcode/overview.html#_g_code_order_of_execution>`__).
+        ``process_block`` does this automatically.
+        
+        If you need to process & change one type of gcode (usually a movement),
+        you must split a list of gcodes into those executed before, and after the one
+        in question.
+        
+        ::
+        
+            from pygcode import GCodeRapidMove, GCodeLinearMove
+            from pygcode import Machine, Line, split_gcodes
+            m = Machine()
+            line = Line('M0 G0 x10 y10 G91')
+            (befores, (g,), afters) = split_gcodes(line.block.gcodes, (GCodeRapidMove, GCodeLinearMove))
+            m.process_gcodes(*sorted(befores))
+            if g.X is not None:
+                g.X += 100  # shift linear movements (rapid or otherwise)
+            m.process_gcodes(g)
+            m.process_gcodes(*sorted(afters))
+        
+        
+        For a more practical use of machines & interpreting gcode, have a look at
+        `pygcode-normalize.py <https://github.com/fragmuffin/pygcode/blob/master/scripts/pygcode-normalize.py>`__
+        
+        At the time of writing this, that script converts arcs to linear codes, and
+        expands drilling cycles to basic movements (so my
+        `GRBL <https://github.com/gnea/grbl>`__ machine can understand them)
+        
+        
+        Development
+        ===========
+        
+        This library came from my own needs to interpret and convert erroneous
+        arcs to linear segments, and to expand canned drilling cycles, but also
+        as a means to *learn* GCode.
+        
+        As such there is no direct plan for further development, however I'm
+        interested in what you'd like to use it for, and cater for that.
+        
+        Generally, in terms of what to support, I'm following the lead of:
+        
+        - `GRBL <https://github.com/gnea/grbl>`__ and
+        - `LinuxCNC <http://linuxcnc.org/>`__
+        
+        More support will come with increased interest.
+        So that is... if you don't like what it does, or how it's documented, make some
+        noise in the `issue section <https://github.com/fragmuffin/pygcode/issues>`__.
+        if you get in early, you may get some free labour out of me ;)
+        
+        
+        Supported G-Codes
+        -----------------
+        
+        All GCodes supported by `LinuxCNC <http://linuxcnc.org>`__ can be written, and
+        parsed by ``pygcode``.
+        
+        Few GCodes are accurately interpreted by a virtual CNC ``Machine`` instance.
+        Supported movements are currently;
+        
+        - linear movements
+        - arc movements
+        - canned drilling cycles
+        
+Keywords: gcode,cnc,parser,interpreter
+Platform: UNKNOWN
+Classifier: Development Status :: 2 - Pre-Alpha
+Classifier: Intended Audience :: Developers
+Classifier: Intended Audience :: Manufacturing
+Classifier: License :: OSI Approved :: GNU General Public License v3 (GPLv3)
+Classifier: Natural Language :: English
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 2
+Classifier: Programming Language :: Python :: 3
+Classifier: Topic :: Scientific/Engineering

@@ -4,3 +4,6 @@
 
 # editor backups
 *.swp
+
+# build
+build/*
