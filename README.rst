@@ -101,6 +101,7 @@ The ``Block`` contains a list of gcodes you're after.
 To elaborate, here are some line examples
 
 ::
+
     >>> from pygcode import Line
 
     >>> line = Line('G01 x1 y2  f100 s1000 ; blah')

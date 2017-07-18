@@ -1,10 +1,7 @@
 import sys
 from copy import copy, deepcopy
 
-if sys.version_info < (3, 0):
-    from euclid import Vector3, Quaternion
-else:
-    from euclid3 import Vector3, Quaternion
+from euclid3 import Vector3, Quaternion
 
 
 # ==================== Geometric Utilities ====================
