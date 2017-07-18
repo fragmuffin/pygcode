@@ -66,8 +66,8 @@ def plane_projection(vect, normal):
     n = normal.normalized()
     return vect - (n * vect.dot(n))
 
-# ==================== GCode Utilities ====================
 
+# ==================== GCode Utilities ====================
 def omit_redundant_modes(gcode_iter):
     """
     Replace redundant machine motion modes with whitespace,

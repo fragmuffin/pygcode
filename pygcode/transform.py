@@ -1,10 +1,14 @@
 from math import sin, cos, tan, asin, acos, atan2, pi, sqrt, ceil
 
-from .gcodes import GCodeLinearMove
+from .gcodes import GCodeLinearMove, GCodeRapidMove
 from .gcodes import GCodeArcMove, GCodeArcMoveCW, GCodeArcMoveCCW
 from .gcodes import GCodePlaneSelect, GCodeSelectXYPlane, GCodeSelectYZPlane, GCodeSelectZXPlane
 from .gcodes import GCodeAbsoluteDistanceMode, GCodeIncrementalDistanceMode
 from .gcodes import GCodeAbsoluteArcDistanceMode, GCodeIncrementalArcDistanceMode
+from .gcodes import GCodeCannedCycle
+from .gcodes import GCodeDrillingCyclePeck, GCodeDrillingCycleDwell, GCodeDrillingCycleChipBreaking
+from .gcodes import GCodeCannedReturnMode, GCodeCannedCycleReturnLevel, GCodeCannedCycleReturnToR
+from .gcodes import _gcodes_abs2rel
 
 from .machine import Position
 from .exceptions import GCodeParameterError
@@ -97,7 +101,7 @@ class ArcLinearizeMethod(object):
             self._outer_radius = self.get_outer_radius()
         return self._outer_radius
 
-    # Iter
+    # Vertex Generator
     def iter_vertices(self):
         """Yield absolute (<start vertex>, <end vertex>) for each line for the arc"""
         start_vertex = self.arc_p_start - self.arc_p_center
@@ -214,6 +218,17 @@ DEFAULT_LA_ARCDISTMODE = GCodeIncrementalArcDistanceMode
 def linearize_arc(arc_gcode, start_pos, plane=None, method_class=None,
                   dist_mode=None, arc_dist_mode=None,
                   max_error=0.01, decimal_places=3):
+    """
+    Convert a G2,G3 arc into a series of approsimation G1 codes
+    :param arc_gcode: arc gcode to approximate (GCodeArcMove)
+    :param start_pos: current machine position (Position)
+    :param plane: machine's active plane (GCodePlaneSelect)
+    :param method_class: method of linear approximation (ArcLinearizeMethod)
+    :param dist_mode: machine's distance mode (GCodeAbsoluteDistanceMode or GCodeIncrementalDistanceMode)
+    :param arc_dist_mode: machine's arc distance mode (GCodeAbsoluteArcDistanceMode or GCodeIncrementalArcDistanceMode)
+    :param max_error: maximum distance approximation arcs can stray from original arc (float)
+    :param decimal_places: number of decimal places gocde will be rounded to, used to mitigate risks of accumulated eror when in incremental distance mode (int)
+    """
     # set defaults
     if method_class is None:
         method_class = DEFAULT_LA_method_class
@@ -362,4 +377,109 @@ def linearize_arc(arc_gcode, start_pos, plane=None, method_class=None,
             cur_pos += l_delta # mitigate errors by also adding them the accumulated cur_pos
 
 
-# ==================== Arc Precision Adjustment ====================
+# ==================== Un-Canning ====================
+
+DEFAULT_SCC_PLANE = GCodeSelectXYPlane
+DEFAULT_SCC_DISTMODE = GCodeAbsoluteDistanceMode
+DEFAULT_SCC_RETRACTMODE = GCodeCannedCycleReturnLevel
+
+def simplify_canned_cycle(canned_gcode, start_pos,
+                          plane=None, dist_mode=None, retract_mode=None,
+                          axes='XYZ'):
+    """
+    Simplify canned cycle into it's basic linear components
+    :param canned_gcode: canned gcode to be simplified (GCodeCannedCycle)
+    :param start_pos: current machine position (Position)
+    :param plane: machine's active plane (GCodePlaneSelect)
+    :param dist_mode: machine's distance mode (GCodeAbsoluteDistanceMode or GCodeIncrementalDistanceMode)
+    :param axes: axes machine accepts (set)
+    """
+
+    # set defaults
+    if plane is None:
+        plane = DEFAULT_SCC_PLANE()
+    if dist_mode is None:
+        dist_mode = DEFAULT_SCC_DISTMODE()
+    if retract_mode is None:
+        retract_mode = DEFAULT_SCC_RETRACTMODE()
+
+    # Parameter Type Assertions
+    assert isinstance(canned_gcode, GCodeCannedCycle), "bad canned_gcode type: %r" % canned_gcode
+    assert isinstance(start_pos, Position), "bad start_pos type: %r" % start_pos
+    assert isinstance(plane, GCodePlaneSelect), "bad plane type: %r" % plane
+    assert isinstance(dist_mode, (GCodeAbsoluteDistanceMode, GCodeIncrementalDistanceMode)), "bad dist_mode type: %r" % dist_mode
+    assert isinstance(retract_mode, GCodeCannedReturnMode), "bad retract_mode type: %r" % retract_mode
+
+    # TODO: implement for planes other than XY
+    if not isinstance(plane, GCodeSelectXYPlane):
+        raise NotImplementedError("simplifying canned cycles for planes other than X/Y has not been implemented")
+
+    @_gcodes_abs2rel(start_pos=start_pos, dist_mode=dist_mode, axes=axes)
+    def inner():
+        cycle_count = 1 if (canned_gcode.L is None) else canned_gcode.L
+        cur_hole_p_axis = start_pos.vector
+        for i in range(cycle_count):
+            # Calculate Depths
+            if isinstance(dist_mode, GCodeAbsoluteDistanceMode):
+                retract_depth = canned_gcode.R
+                drill_depth = canned_gcode.Z
+                cur_hole_p_axis = Vector3(x=canned_gcode.X, y=canned_gcode.Y)
+            else:  # incremental
+                retract_depth = start_pos.Z + canned_gcode.R
+                drill_depth = retract_depth + canned_gcode.Z
+                cur_hole_p_axis += Vector3(x=canned_gcode.X, y=canned_gcode.Y)
+
+            if retract_depth < drill_depth:
+                raise NotImplementedError("drilling upward is not supported")
+
+            if isinstance(retract_mode, GCodeCannedCycleReturnToR):
+                final_depth = retract_depth
+            else:
+                final_depth = start_pos.Z
+
+            # Move above hole (height of retract_depth)
+            if retract_depth > start_pos.Z:
+                yield GCodeRapidMove(Z=retract_depth)
+            yield GCodeRapidMove(X=cur_hole_p_axis.x, Y=cur_hole_p_axis.y)
+            if retract_depth < start_pos.Z:
+                yield GCodeRapidMove(Z=retract_depth)
+
+            # Drill hole
+            delta = drill_depth - retract_depth  # full depth
+            if isinstance(canned_gcode, (GCodeDrillingCyclePeck, GCodeDrillingCycleChipBreaking)):
+                delta = -abs(canned_gcode.Q)
+
+            cur_depth = retract_depth
+            last_depth = cur_depth
+            while True:
+                # Determine new depth
+                cur_depth += delta
+                if cur_depth < drill_depth:
+                    cur_depth = drill_depth
+
+                # Rapid to just above, then slowly drill through delta
+                just_above_base = last_depth + 0.1
+                if just_above_base < retract_depth:
+                    yield GCodeRapidMove(Z=just_above_base)
+                yield GCodeLinearMove(Z=cur_depth)
+                if cur_depth <= drill_depth:
+                    break  # loop stops at the bottom of the hole
+                else:
+                    # back up
+                    if isinstance(canned_gcode, GCodeDrillingCycleChipBreaking):
+                        # retract "a bit"
+                        yield GCodeRapidMove(Z=cur_depth + 0.5)  # TODO: configurable retraction
+                    else:
+                        # default behaviour: GCodeDrillingCyclePeck
+                        yield GCodeRapidMove(Z=retract_depth)
+
+                last_depth = cur_depth
+
+            # Dwell
+            if isinstance(canned_gcode, GCodeDrillingCycleDwell):
+                yield GCodeDwell(P=0.5) # TODO: configurable pause
+
+            # Return
+            yield GCodeRapidMove(Z=final_depth)
+
+    return inner()

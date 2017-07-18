@@ -11,6 +11,7 @@ add_pygcode_to_path()
 # Units under test
 from pygcode import gcodes
 from pygcode import words
+from pygcode import machine
 
 from pygcode.exceptions import GCodeWordStrError
 
@@ -139,3 +140,54 @@ class GCodeSplitTests(unittest.TestCase):
         self.assertTrue(any(isinstance(g, gcodes.GCodeMotion) for g in split[0]))
         self.assertTrue(isinstance(split[1][0], gcodes.GCodeStartSpindle))
         self.assertTrue(any(isinstance(g, gcodes.GCodeSpindleSpeed) for g in split[2]))
+
+
+class GCodeAbsoluteToRelativeDecoratorTests(unittest.TestCase):
+
+    def test_gcodes_abs2rel(self):
+        # setup gcode testlist
+        L = gcodes.GCodeLinearMove
+        R = gcodes.GCodeRapidMove
+        args = lambda x, y, z: dict(a for a in zip('XYZ', [x,y,z]) if a[1] is not None)
+        gcode_list = [
+            # GCode instances    Expected incremental output
+            (L(**args(0, 0, 0)), L(**args(-10, -20, -30))),
+            (L(**args(1, 2, 0)), L(**args(1, 2, None))),
+            (L(**args(3, 4, 0)), L(**args(2, 2, None))),
+            (R(**args(1, 2, 0)), R(**args(-2, -2, None))),
+            (R(**args(3, 4, 0)), R(**args(2, 2, None))),
+            (L(**args(3, 4, 0)), None),
+            (L(**args(3, 4, 8)), L(**args(None, None, 8))),
+        ]
+
+        m = machine.Machine()
+
+        # Incremental Output
+        m.set_mode(gcodes.GCodeAbsoluteDistanceMode())
+        m.move_to(X=10, Y=20, Z=30)  # initial position (absolute)
+        m.set_mode(gcodes.GCodeIncrementalDistanceMode())
+
+        @gcodes._gcodes_abs2rel(m.pos, dist_mode=m.mode.distance, axes=m.axes)
+        def expecting_rel():
+            return [g[0] for g in gcode_list]
+
+        trimmed_expecting_list = [x[1] for x in gcode_list if x[1] is not None]
+        for (i, g) in enumerate(expecting_rel()):
+            expected = trimmed_expecting_list[i]
+            self.assertEqual(type(g), type(expected))
+            self.assertEqual(g.word, expected.word)
+            self.assertEqual(g.params, expected.params)
+
+        # Absolute Output
+        m.set_mode(gcodes.GCodeAbsoluteDistanceMode())
+        m.move_to(X=10, Y=20, Z=30)  # initial position
+
+        @gcodes._gcodes_abs2rel(m.pos, dist_mode=m.mode.distance, axes=m.axes)
+        def expecting_abs():
+            return [g[0] for g in gcode_list]
+
+        for (i, g) in enumerate(expecting_abs()):
+            expected = gcode_list[i][0]  # expecting passthrough
+            self.assertEqual(type(g), type(expected))
+            self.assertEqual(g.word, expected.word)
+            self.assertEqual(g.params, expected.params)

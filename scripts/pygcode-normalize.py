@@ -20,7 +20,7 @@ for pygcode_lib_type in ('installed_lib', 'relative_lib'):
         from pygcode import GCodeCannedCycle
         from pygcode import split_gcodes
         from pygcode import Comment
-        from pygcode.transform import linearize_arc
+        from pygcode.transform import linearize_arc, simplify_canned_cycle
         from pygcode.transform import ArcLinearizeInside, ArcLinearizeOutside, ArcLinearizeMid
         from pygcode.gcodes import _subclasses
         from pygcode.utils import omit_redundant_modes
@@ -89,13 +89,13 @@ group = parser.add_argument_group(
     "interpolation (G1), and pauses (or 'dwells', G4)"
 )
 group.add_argument(
-    '--canned_simplify', '-cs', dest='canned_simplify',
+    '--canned_expand', '-ce', dest='canned_expand',
     action='store_const', const=True, default=False,
-    help="Convert canned cycles into basic linear movements",
+    help="Expand canned cycles into basic linear movements, and pauses",
 )
 group.add_argument(
     '---canned_codes', '-cc', dest='canned_codes', default=DEFAULT_CANNED_CODES,
-    help="List of canned gcodes to simplify, (default is '%s')" % DEFAULT_CANNED_CODES,
+    help="List of canned gcodes to expand, (default is '%s')" % DEFAULT_CANNED_CODES,
 )
 
 #parser.add_argument(
@@ -194,6 +194,7 @@ for line_str in args.infile[0].readlines():
 
     if args.arc_linearize and any(isinstance(g, GCodeArcMove) for g in effective_gcodes):
         with split_and_process(effective_gcodes, GCodeArcMove, line.comment) as arc:
+            print(Comment("linearized arc: %r" % arc))
             linearize_params = {
                 'arc_gcode': arc,
                 'start_pos': machine.pos,
@@ -207,14 +208,18 @@ for line_str in args.infile[0].readlines():
             for linear_gcode in omit_redundant_modes(linearize_arc(**linearize_params)):
                 print(linear_gcode)
 
-    elif args.canned_simplify and any((g.word in args.canned_codes) for g in effective_gcodes):
-        (befores, (canned,), afters) = split_gcodes(effective_gcodes, GCodeCannedCycle)
-        print(Comment('canning simplified: %r' % canned))
-
-        # TODO: simplify canned things
-
-        print(str(line))
-        machine.process_block(line.block)
+    elif args.canned_expand and any((g.word in args.canned_codes) for g in effective_gcodes):
+        with split_and_process(effective_gcodes, GCodeCannedCycle, line.comment) as canned:
+            print(Comment("expanded: %r" % canned))
+            simplify_canned_params = {
+                'canned_gcode': canned,
+                'start_pos': machine.pos,
+                'plane': machine.mode.plane_selection,
+                'dist_mode': machine.mode.distance,
+                'axes': machine.axes,
+            }
+            for simplified_gcode in omit_redundant_modes(simplify_canned_cycle(**simplify_canned_params)):
+                print(simplified_gcode)
 
     else:
         print(str(line))

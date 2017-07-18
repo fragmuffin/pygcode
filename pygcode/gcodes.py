@@ -475,42 +475,42 @@ class GCodeDrillingCycle(GCodeCannedCycle):
     """G81: Drilling Cycle"""
     param_letters = GCodeCannedCycle.param_letters | set('RLP')
     word_key = Word('G', 81)
-    modal_param_letters = GCodeCannedCycle.param_letters | set('RLP')
+    modal_param_letters = GCodeCannedCycle.param_letters | set('RP')
 
 
 class GCodeDrillingCycleDwell(GCodeCannedCycle):
     """G82: Drilling Cycle, Dwell"""
     param_letters = GCodeCannedCycle.param_letters | set('RLP')
     word_key = Word('G', 82)
-    modal_param_letters = GCodeCannedCycle.param_letters | set('RLP')
+    modal_param_letters = GCodeCannedCycle.param_letters | set('RP')
 
 
 class GCodeDrillingCyclePeck(GCodeCannedCycle):
     """G83: Drilling Cycle, Peck"""
     param_letters = GCodeCannedCycle.param_letters | set('RLQ')
     word_key = Word('G', 83)
-    modal_param_letters = GCodeCannedCycle.param_letters | set('RLQ')
+    modal_param_letters = GCodeCannedCycle.param_letters | set('RQ')
 
 
 class GCodeDrillingCycleChipBreaking(GCodeCannedCycle):
     """G73: Drilling Cycle, ChipBreaking"""
     param_letters = GCodeCannedCycle.param_letters | set('RLQ')
     word_key = Word('G', 73)
-    modal_param_letters = GCodeCannedCycle.param_letters | set('RLQ')
+    modal_param_letters = GCodeCannedCycle.param_letters | set('RQ')
 
 
 class GCodeBoringCycleFeedOut(GCodeCannedCycle):
     """G85: Boring Cycle, Feed Out"""
     param_letters = GCodeCannedCycle.param_letters | set('RLP')
     word_key = Word('G', 85)
-    modal_param_letters = GCodeCannedCycle.param_letters | set('RLP')
+    modal_param_letters = GCodeCannedCycle.param_letters | set('RP')
 
 
 class GCodeBoringCycleDwellFeedOut(GCodeCannedCycle):
     """G89: Boring Cycle, Dwell, Feed Out"""
     param_letters = GCodeCannedCycle.param_letters | set('RLP')
     word_key = Word('G', 89)
-    modal_param_letters = GCodeCannedCycle.param_letters | set('RLP')
+    modal_param_letters = GCodeCannedCycle.param_letters | set('RP')
 
 
 class GCodeThreadingCycle(GCodeCannedCycle):
@@ -895,8 +895,8 @@ class GCodePathBlendingMode(GCodePathControlMode):
 
 # ======================= Return Mode in Canned Cycles =======================
 # CODE              PARAMETERS          DESCRIPTION
-# G98                                   Canned Cycle Return Level
-
+# G98                                   Canned Cycle Return Level to previous
+# G99                                   Canned Cycle Return to the level set by R
 
 class GCodeCannedReturnMode(GCode):
     modal_group = MODAL_GROUP_MAP['canned_cycles_return']
@@ -1444,3 +1444,73 @@ def split_gcodes(gcode_list, splitter_class, sort_list=True):
         split[2] = gcode_list[split_index+1:]
 
     return split
+
+
+def _gcodes_abs2rel(start_pos, dist_mode=None, axes='XYZ'):
+    """
+    Decorator to convert returned motion gcode coordinates to incremental.
+    Intended to be used internally (mainly because it's a little shonky)
+    Decorated function is only expected to return GCodeRapidMove or GCodeLinearMove
+    instances
+    :param start_pos: starting machine position (Position)
+    :param dist_mode: machine's distance mode (GCodeAbsoluteDistanceMode or GCodeIncrementalDistanceMode)
+    :param axes: axes machine accepts (set)
+    """
+    # Usage:
+    #   m = Machine()  # defaults to absolute distance mode
+    #   m.process_gcodes(GCodeRapidMove(X=10, Y=20, Z=3))
+    #   m.process_gcodes(GCodeIncrementalDistanceMode())
+    #
+    #   @_gcodes_abs2rel(start_pos=m.pos, dist_mode=m.mode.distance, axes=m.axes)
+    #   def do_stuff():
+    #       yield GCodeRapidMove(X=0, Y=30, Z=3)
+    #       yield GCodeLinearMove(X=0, Y=30, Z=-5)
+    #
+    #   gcode_list = do_stuff()
+    #   gocde_list[0] # == GCodeRapidMove(X=-10, Y=10)
+    #   gocde_list[1] # == GCodeLinearMove(Z=-8)
+
+    SUPPORTED_MOTIONS = (
+        GCodeRapidMove, GCodeLinearMove,
+    )
+
+    def wrapper(func):
+
+        def inner(*largs, **kwargs):
+            # Create Machine (with minimal information)
+            from .machine import Machine, Mode, Position
+            m = type('AbsoluteCoordMachine', (Machine,), {
+                'MODE_CLASS': type('NullMode', (Mode,), {'default_mode': 'G90'}),
+                'axes': axes,
+            })()
+            m.pos = start_pos
+
+            for gcode in func(*largs, **kwargs):
+                # Verification & passthrough's
+                if not isinstance(gcode, GCode):
+                    yield gcode  # whatever this thing is
+                else:
+                    # Process gcode
+                    pos_from = m.pos
+                    m.process_gcodes(gcode)
+                    pos_to = m.pos
+
+                    if gcode.modal_group != MODAL_GROUP_MAP['motion']:
+                        yield gcode  # only deal with motion gcodes
+                        continue
+                    elif not isinstance(gcode, SUPPORTED_MOTIONS):
+                        raise NotImplementedError("%r to iterative coords is not supported (this is only a very simple function)" % gcode)
+
+                    # Convert coordinates to iterative
+                    rel_pos = pos_to - pos_from
+                    coord_words = [w for w in rel_pos.words if w.value]
+                    if coord_words:  # else relative coords are all zero; do nothing
+                        yield words2gcodes([gcode.word] + coord_words)[0].pop()
+
+
+        # Return apropriate function
+        if (dist_mode is None) or isinstance(dist_mode, GCodeIncrementalDistanceMode):
+            return inner
+        else:
+            return func  # bypass decorator entirely; nothing to be done
+    return wrapper

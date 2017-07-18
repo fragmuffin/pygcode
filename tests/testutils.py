@@ -1,3 +1,4 @@
+# utilities for the testing suite (as opposed to the tests for utils.py)
 import sys
 import os
 import inspect
