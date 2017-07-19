@@ -29,7 +29,7 @@ for pygcode_lib_type in ('installed_lib', 'relative_lib'):
         import sys, os, inspect
         # Add pygcode (relative to this test-path) to the system path
         _this_path = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
-        sys.path.insert(0, os.path.join(_this_path, '..'))
+        sys.path.insert(0, os.path.join(_this_path, '..', 'src'))
         if pygcode_lib_type == 'installed_lib':
             continue # import was attempted before sys.path addition. retry import
         raise # otherwise the raised ImportError is a genuine problem
