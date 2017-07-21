@@ -13,6 +13,50 @@ Method based on the articles:
   * https://hynek.me/articles/sharing-your-labor-of-love-pypi-quick-and-dirty/
 
 
+Deployment also heavily uses the `./deploy.sh` script in this folder.
+At this time, running `./deploy.sh --help` displays:
+
+```
+Usage: ./deploy.sh {build|test|and so on ...}
+
+This script is to maintain a consistent method of deployment and testing.
+
+Deployment target: pygcode 0.1.1.dev0
+
+Arguments:
+    Setup:
+        setup:      Installs packages & sets up environment (requires sudo)
+
+    Compiling:
+        build:      Execute setup to build packages (populates ../dist/)
+                    creates both 'sdist' and 'wheel' distrobutions.
+
+    Virtual Environments:
+        rmenv py#       Remove virtual environment
+        remkenv py#     Remove, then create re-create virtual environment
+
+    Deploy:
+        deploy test     Upload to PyPi test server
+        deploy prod     Upload to PyPi (official)
+
+    Install:
+        install sdist py#       Install from local sdist
+        install wheel py#       Install from local wheel
+        install pypitest py#    Install from PyPi test server
+        install pypi py#        Install from PyPi (official)
+
+    Testing:
+        test dev py#        Run tests on local dev in a virtual env
+        test installed py#  Run tests on installed library in virtual env
+
+    Help:
+        -h | --help     display this help message
+
+    py#: when referenced above means
+        'py2' for Python 2.7.12
+        'py3' for Python 3.5.2
+```
+
 # PyPi deployment
 
 ## Install Required Tools
