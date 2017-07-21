@@ -1,6 +1,6 @@
 Metadata-Version: 1.1
 Name: pygcode
-Version: 0.1.0
+Version: 0.1.1.dev0
 Summary: Basic g-code parser, interpreter, and encoder library.
 Home-page: https://github.com/fragmuffin/pygcode
 Author: Peter Boin
@@ -18,14 +18,16 @@ Description: =======
         Installation
         ============
         
-        Using `PyPi <https://pypi.python.org/pypi/pydemia>`__:
+        Install using ``pip``
         
         ``pip install pygcode``
+        
+        or `download directly from PyPi <https://pypi.python.org/pypi/pygcode>`__
+        
         
         Usage
         =====
         
-        Just brainstorming here...
         
         Writing GCode
         -------------

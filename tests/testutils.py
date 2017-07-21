@@ -5,14 +5,20 @@ import inspect
 
 import re
 
+
 # Units Under Test
 _pygcode_in_path = False
 def add_pygcode_to_path():
     global _pygcode_in_path
     if not _pygcode_in_path:
-        # Add pygcode (relative to this test-path) to the system path
-        _this_path = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
-        sys.path.insert(0, os.path.join(_this_path, '..'))
+        if os.environ.get('PYGCODE_TESTSCOPE', 'local') == 'installed':
+            # Run tests on the `pip install` installed libray
+            pass  # nothing to be done
+        else:
+            # Run tests explicitly on files in ../src (ignore any installed libs)
+            # Add pygcode (relative to this test-path) to the system path
+            _this_path = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
+            sys.path.insert(0, os.path.join(_this_path, '..', 'src'))
 
         _pygcode_in_path = True
 

@@ -1,6 +1,7 @@
 README.rst
 setup.cfg
 setup.py
+scripts/pygcode-norm
 src/pygcode/__init__.py
 src/pygcode/block.py
 src/pygcode/comment.py
