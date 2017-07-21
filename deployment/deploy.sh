@@ -131,7 +131,7 @@ function install() {
     deactivate
 }
 
-function test() {
+function run_test() {
     # Run tests
 
     _test_scope=$1
@@ -200,7 +200,7 @@ case "$1" in
     remkenv) remkenv $2 ;;
     deploy) deploy $2 ;;
     install) install $2 $3 ;;
-    test) test $2 $3 ;;
+    test) run_test $2 $3 ;;
 
     # otherwise... show help
     *)
