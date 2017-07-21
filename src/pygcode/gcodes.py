@@ -96,7 +96,7 @@ MODAL_GROUP_MAP = {
 
     # Traditionally Non-grouped:
     #   Although these GCodes set the machine's mode, there are no other GCodes to
-    #   group with them. So although they're modal, they doesn't have a defined
+    #   group with them. So although they're modal, they don't have a defined
     #   modal group.
     #   However, having a modal group assists with:
     #       - validating gcode blocks for conflicting commands
