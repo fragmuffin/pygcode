@@ -1,6 +1,11 @@
 # Notes on deployment
 
-How I deployed this package (mainly just notes for myself)
+How I deploy this package.
+
+For anyone reading, this readme and all files in this folder are mainly just
+notes for myself; they have little to do with pygcode itself.
+However, if you're interested in deploying your own PyPi package, then hopefully
+this can help.
 
 Method based on the articles:
 
@@ -8,15 +13,13 @@ Method based on the articles:
   * https://hynek.me/articles/sharing-your-labor-of-love-pypi-quick-and-dirty/
 
 
-## PyPi deployment
+# PyPi deployment
 
-### Pre-requisites
+## Install Required Tools
 
-```
-pip install -U "pip>=1.4" "setuptools>=0.9" "wheel>=0.21" twine
-```
+`./deploy.sh setup`
 
-### PyPi rc
+## PyPi rc
 
 `cat ~/.pypirc`
 
@@ -40,76 +43,99 @@ password=secret
 `chmod 600 ~/.pypirc`
 
 
-### Building
+## Build and Test `sdist` and `wheel`
 
+**Build**
 ```
-rm -rf build/
-python setup.py sdist bdist_wheel
-```
-
-#### Test Build (sdist)
-
-**Python 2.x**
-
-```
-rmvirtualenv 27-test
-mkvirtualenv 27-test
-
-$WORKON_HOME/27-test/bin/pip install dist/pygcode-0.1.0.tar.gz
-
-$WORKON_HOME/27-test/bin/python
-
->>> import pygcode
->>> pygcode.Line('g1 x2 y3 m3 s1000 f100').block.gcodes  # or whatever
+./deploy.sh build
 ```
 
-**Python 3.x**
+**Test `sdist`**
+```
+# Python 2.x
+./deploy.sh remkenv py2
+./deploy.sh install sdist py2
+./deploy.sh test installed py2
+
+# Python 3.x
+./deploy.sh remkenv py3
+./deploy.sh install sdist py3
+./deploy.sh test installed py3
+```
+
+**Test `wheel`**
+```
+# Python 2.x
+./deploy.sh remkenv py2
+./deploy.sh install wheel py2
+./deploy.sh test installed py2
+
+# Python 3.x
+./deploy.sh remkenv py3
+./deploy.sh install wheel py3
+./deploy.sh test installed py3
+```
+
+
+## Upload to PyPi Test server
 
 ```
-rmvirtualenv 35-test
-mkvirtualenv -p $(which python3) 35-test
-
-$WORKON_HOME/35-test/bin/pip install dist/pygcode-0.1.0.tar.gz
-
-$WORKON_HOME/35-test/bin/python
-
->>> import pygcode
->>> pygcode.Line('g1 x2 y3 m3 s1000 f100').block.gcodes  # or whatever
+./deploy.sh test
 ```
 
-#### Test Build (wheel)
+**Test**
+```
+# Python 2.x
+./deploy.sh remkenv py2
+./deploy.sh install pypitest py2
+./deploy.sh test installed py2
 
-similar to above, but the `pip` call references `pygcode-0.1.0-py2.py3-none-any.whl` instead
+# Python 3.x
+./deploy.sh remkenv py3
+./deploy.sh install pypitest py3
+./deploy.sh test installed py3
+```
 
-make sure to `rmvirtualenv` to ensure `pygcode` is uninstalled from virtual environment
-
-
-### Upload to PyPi Test server
-
-`twine upload -r test dist/pygcode-0.1.0*`
-
-Then another round of testing, where `pip` call is:
-
-`$WORKON_HOME/<envname>/bin/pip install -i https://testpypi.python.org/pypi pygcode`
+have a look at:
+https://testpypi.python.org/pypi/pygcode
+to make sure it's sane
 
 
-### Upload to PyPy server
+## Upload to PyPy server
 
 all good!? sweet :+1: time to upload to 'production'
 
-`twine upload -r prod dist/pygcode-0.1.0*`
+```
+./deploy.sh prod
+```
 
-and final tests with simply:
+**Test**
+```
+# Python 2.x
+./deploy.sh remkenv py2
+./deploy.sh install pypi py2
+./deploy.sh test installed py2
 
-`$WORKON_HOME/<envname>/bin/pip install pygcode`
+# Python 3.x
+./deploy.sh remkenv py3
+./deploy.sh install pypi py3
+./deploy.sh test installed py3
+```
 
-## Deployment in Git
+have a look at:
+https://pypi.python.org/pypi/pygcode
+to make sure it's sane
 
-after merging to `master`
+
+# Deployment in Git
+
+merge deployed branch to `master`
 
 ```
-git tag 0.1.0 -m "Initial version"
+git tag ${version} -m "<change description>"
 git push --tags origin master
 ```
 
-tadaaaaaa!
+have a look at the [releases page](https://github.com/fragmuffin/pygcode/releases) and it should be there.
+
+tadaaaaaa!... go to sleep; it's probably late
