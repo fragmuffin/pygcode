@@ -221,15 +221,6 @@ class State(object):
 
 class Mode(object):
     """Machine's mode"""
-    # State is very forgiving:
-    #   Anything possible in a machine's state may be changed & fetched.
-    #   For example: x, y, z, a, b, c may all be set & requested.
-    #   However, the machine for which this state is stored probably doesn't
-    #   have all possible 6 axes.
-    #   It is also possible to set an axis to an impossibly large distance.
-    #   It is the responsibility of the Machine using this class to be
-    #   discerning in these respects.
-
     # Default Mode
     #   for a Grbl controller this can be obtained with the `$G` command, eg:
     #       > $G
@@ -350,6 +341,8 @@ class Machine(object):
         coord_sys_mode = self.mode.coordinate_system
         if coord_sys_mode:
             self.state.cur_coord_sys = coord_sys_mode.coord_system_id
+
+        # TODO: convert coord systems between inches/mm, G20/G21 respectively
 
     def modal_gcode(self, modal_params):
 
