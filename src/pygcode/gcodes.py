@@ -218,14 +218,28 @@ class GCode(object):
             return copy(self.word_key)
         raise AssertionError("class %r has no default word" % self.__class__)
 
-    # Comparisons
+    # Equality
+    def __eq__(self, other):
+        return (
+            (self.word == other.word) and
+            (self.params == other.params)
+        )
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
+
+    # Sort by execution order
     def __lt__(self, other):
-        """Sort by execution order"""
         return self.exec_order < other.exec_order
 
+    def __le__(self, other):
+        return self.exec_order <= other.exec_order
+
     def __gt__(self, other):
-        """Sort by execution order"""
         return self.exec_order > other.exec_order
+
+    def __ge__(self, other):
+        return self.exec_order >= other.exec_order
 
     # Parameters
     def add_parameter(self, word):
@@ -483,10 +497,18 @@ class GCodeCannedCycle(GCode):
         if isinstance(machine.mode.canned_cycles_return, GCodeCannedCycleReturnToR):
             # canned return is to this.R, not this.Z (plane dependent)
             moveto_coords.update({
-                machine.mode.plane_selection.normal_axis: this.R,
+                machine.mode.plane_selection.normal_axis: self.R,
             })
+        else:  # default: GCodeCannedCycleReturnPrevLevel
+            # Remove this.Z (plane dependent) value (ie: no machine movement on this axis)
+            moveto_coords.pop(machine.mode.plane_selection.normal_axis, None)
 
-        machine.move_to(**moveto_coords)
+        # Process action 'L' times
+        loop_count = self.L
+        if (loop_count is None) or (loop_count <= 0):
+            loop_count = 1
+        for i in range(loop_count):
+            machine.move_to(**moveto_coords)
 
 
 class GCodeDrillingCycle(GCodeCannedCycle):
@@ -929,7 +951,7 @@ class GCodeCannedReturnMode(GCode):
     exec_order = 220
 
 
-class GCodeCannedCycleReturnLevel(GCodeCannedReturnMode):
+class GCodeCannedCycleReturnPrevLevel(GCodeCannedReturnMode):
     """G98: Canned Cycle Return to the level set prior to cycle start"""
     # "retract to the position that axis was in just before this series of one or more contiguous canned cycles was started"
     word_key = Word('G', 98)
