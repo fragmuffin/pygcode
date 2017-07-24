@@ -53,7 +53,7 @@ __all__ = [
     'GCodeCancelCannedCycle',
     'GCodeCancelToolLengthOffset',
     'GCodeCannedCycle',
-    'GCodeCannedCycleReturnLevel',
+    'GCodeCannedCycleReturnPrevLevel',
     'GCodeCannedCycleReturnToR',
     'GCodeCannedReturnMode',
     'GCodeCoolant',
@@ -199,7 +199,7 @@ from .gcodes import (
     # G83       - GCodeDrillingCyclePeck: G83: Drilling Cycle, Peck
     # G76       - GCodeThreadingCycle: G76: Threading Cycle
     #         - GCodeCannedReturnMode:
-    # G98       - GCodeCannedCycleReturnLevel: G98: Canned Cycle Return to the level set prior to cycle start
+    # G98       - GCodeCannedCycleReturnPrevLevel: G98: Canned Cycle Return to the level set prior to cycle start
     # G99       - GCodeCannedCycleReturnToR: G99: Canned Cycle Return to the level set by R
     #         - GCodeCoolant:
     # M08       - GCodeCoolantFloodOn: M8: turn flood coolant on
@@ -330,7 +330,7 @@ from .gcodes import (
     GCodeCancelCannedCycle,
     GCodeCancelToolLengthOffset,
     GCodeCannedCycle,
-    GCodeCannedCycleReturnLevel,
+    GCodeCannedCycleReturnPrevLevel,
     GCodeCannedCycleReturnToR,
     GCodeCannedReturnMode,
     GCodeCoolant,
