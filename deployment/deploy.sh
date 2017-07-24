@@ -154,7 +154,7 @@ function run_test() {
 
     pushd ../tests
     workon ${env_name}
-    ${env_python_bin} -m unittest discover -s . -p 'test_*.py' --verbose
+    ${env_python_bin} -m unittest discover -s . -p 'test_*.py'
     deactivate
     popd
 }
