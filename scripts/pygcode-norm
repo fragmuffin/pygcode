@@ -37,6 +37,43 @@ for pygcode_lib_type in ('installed_lib', 'relative_lib'):
 
 
 # =================== Command Line Arguments ===================
+# --- Types
+def arc_lin_method_type(value):
+    """
+    :return: {Word('G2'): <linearize method class>, ... }
+    """
+    ARC_LIN_CLASS_MAP = {
+        'i': ArcLinearizeInside,
+        'o': ArcLinearizeOutside,
+        'm': ArcLinearizeMid,
+    }
+
+    value_dict = defaultdict(lambda: ArcLinearizeMid)
+    if value:
+        match = re.search(r'^(?P<g2>[iom])(,(?P<g3>[iom]))?$', value, re.IGNORECASE)
+        if not match:
+            raise argparse.ArgumentTypeError("invalid format '%s'" % value)
+
+        value_dict = {
+            Word('g2'): ARC_LIN_CLASS_MAP[match.group('g2')],
+            Word('g3'): ARC_LIN_CLASS_MAP[match.group('g2')],
+        }
+        if match.group('g3'):
+            value_dict[Word('g3')] = ARC_LIN_CLASS_MAP[match.group('g3')]
+
+    return value_dict
+
+def canned_codes_type(value):
+    """
+    :return: [Word('G73'), Word('G89'), ... ]
+    """
+    canned_code_words = set()
+    for word_str in re.split(r'\s*,\s*', value):
+        canned_code_words.add(Word(word_str))
+
+    return canned_code_words
+
+
 # --- Defaults
 DEFAULT_PRECISION = 0.005  # mm
 DEFAULT_MACHINE_MODE = 'G0 G54 G17 G21 G90 G94 M5 M9 T0 F0 S0'
@@ -46,7 +83,7 @@ DEFAULT_CANNED_CODES = ','.join(str(w) for w in sorted(c.word_key for c in _subc
 # --- Create Parser
 parser = argparse.ArgumentParser(description='Normalize gcode for machine consistency using different CAM software')
 parser.add_argument(
-    'infile', type=argparse.FileType('r'), nargs=1,
+    'infile', type=argparse.FileType('r'),
     help="gcode file to normalize",
 )
 
@@ -75,7 +112,8 @@ group.add_argument(
     help="convert G2,G3 commands to a series of linear interpolations (G1 codes)",
 )
 group.add_argument(
-    '--arc_lin_method', '-alm', dest='arc_lin_method', default=DEFAULT_ARC_LIN_METHOD,
+    '--arc_lin_method', '-alm', dest='arc_lin_method',
+    type=arc_lin_method_type, default=DEFAULT_ARC_LIN_METHOD,
     help="Method of linearizing arcs, i=inner, o=outer, m=mid. List 2 "
          "for <ccw>,<cw>, eg 'i,o'. 'i' is equivalent to 'i,i'. "
          "(default: '%s')" % DEFAULT_ARC_LIN_METHOD,
@@ -94,7 +132,8 @@ group.add_argument(
     help="Expand canned cycles into basic linear movements, and pauses",
 )
 group.add_argument(
-    '---canned_codes', '-cc', dest='canned_codes', default=DEFAULT_CANNED_CODES,
+    '--canned_codes', '-cc', dest='canned_codes',
+    type=canned_codes_type, default=DEFAULT_CANNED_CODES,
     help="List of canned gcodes to expand, (default is '%s')" % DEFAULT_CANNED_CODES,
 )
 
@@ -107,41 +146,6 @@ group.add_argument(
 
 # --- Parse Arguments
 args = parser.parse_args()
-
-
-# --- Manually Parsing : Arc Linearizing Method
-# args.arc_lin_method = {Word('G2'): <linearize method class>, ... }
-ARC_LIN_CLASS_MAP = {
-    'i': ArcLinearizeInside,
-    'o': ArcLinearizeOutside,
-    'm': ArcLinearizeMid,
-}
-
-arc_lin_method_regex = re.compile(r'^(?P<g2>[iom])(,(?P<g3>[iom]))?$', re.I)
-if args.arc_lin_method:
-    match = arc_lin_method_regex.search(args.arc_lin_method)
-    if not match:
-        raise RuntimeError("parameter for --arc_lin_method is invalid: '%s'" % args.arc_lin_method)
-
-    # changing args.arc_lin_method (because I'm a fiend)
-    args.arc_lin_method = {}
-    args.arc_lin_method[Word('g2')] = ARC_LIN_CLASS_MAP[match.group('g2')]
-    if match.group('g3'):
-        args.arc_lin_method[Word('g3')] = ARC_LIN_CLASS_MAP[match.group('g3')]
-    else:
-        args.arc_lin_method[Word('g3')] = args.arc_lin_method[Word('g2')]
-else:
-    # FIXME: change default to ArcLinearizeMid (when it's working)
-    args.arc_lin_method = defaultdict(lambda: ArcLinearizeMid) # just to be sure
-
-
-# --- Manually Parsing : Canned Codes
-# args.canned_codes = [Word('G73'), Word('G89'), ... ]
-canned_code_words = set()
-for word_str in re.split(r'\s*,\s*', args.canned_codes):
-    canned_code_words.add(Word(word_str))
-
-args.canned_codes = canned_code_words
 
 
 # =================== Create Virtual CNC Machine ===================
@@ -185,7 +189,7 @@ def split_and_process(gcode_list, gcode_class, comment):
 
 # =================== Process File ===================
 
-for line_str in args.infile[0].readlines():
+for line_str in args.infile.readlines():
     line = Line(line_str)
 
     # Effective G-Codes:
