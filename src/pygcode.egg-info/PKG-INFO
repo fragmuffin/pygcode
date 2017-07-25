@@ -119,14 +119,12 @@ Description: =======
             G01 X1 Y2 F100 S1000 ; blah
             >>> print(line.block)
             G01 X1 Y2 F100 S1000
+            >>> sorted(line.block.gcodes)
+            [<GCodeFeedRate: F100>,
+             <GCodeSpindleSpeed: S1000>,
+             <GCodeLinearMove: G01{X1, Y2}>]
             >>> print(line.comment)
             ; blah
-        
-            >>> line = Line('G0 x1 y2 (foo) f100 (bar) s1000')
-            >>> print(line)
-            G00 X1 Y2 F100 S1000 (foo. bar)
-            >>> print(line.comment)
-            (foo. bar)
         
         
         Interpreting what a line of gcode does depends on the machine it's running on,
