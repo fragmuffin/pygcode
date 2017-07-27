@@ -87,7 +87,7 @@ class Position(object):
                 return self._value == other._value
             else:
                 x = copy(other)
-                x.set_unit(self._unit)
+                x.unit = self._unit
                 return self._value == x._value
 
     def __ne__(self, other):
@@ -125,13 +125,17 @@ class Position(object):
     __truediv__ = __div__ # Python 3 division
 
     # Conversion
-    def set_unit(self, unit):
-        if unit == self._unit:
-            return
-        factor = UNIT_MAP[self._unit]['conversion_factor'][unit]
-        for k in [k for (k, v) in self._value.items() if v is not None]:
-            self._value[k] *= factor
-        self._unit = unit
+    @property
+    def unit(self):
+        return self._unit
+
+    @unit.setter
+    def unit(self, value):
+        if value != self._unit:
+            factor = UNIT_MAP[self._unit]['conversion_factor'][value]
+            for k in [k for (k, v) in self._value.items() if v is not None]:
+                self._value[k] *= factor
+            self._unit = value
 
     @property
     def words(self):
@@ -201,8 +205,6 @@ class State(object):
         #   - G10 L20: makes the current machine coordinates the coordinate system's offset
         # Coordinate System selection:
         #   - G54-G59: select coordinate system (offsets from machine coordinates set by G10 L2)
-
-        # TODO: Move this class into MachineState
 
     @property
     def coord_sys(self):
@@ -328,7 +330,7 @@ class Machine(object):
         units_mode = getattr(self.mode, 'units', None)
         self.Position = type('Position', (Position,), {
             'default_axes': self.axes,
-            'default_unit': units_mode.unit_id if units_mode else UNIT_METRIC,
+            'default_unit': units_mode.unit_id if units_mode else Position.default_unit,
         })
 
         # Absolute machine position
