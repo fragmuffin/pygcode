@@ -81,7 +81,9 @@ DEFAULT_ARC_LIN_METHOD = 'm'
 DEFAULT_CANNED_CODES = ','.join(str(w) for w in sorted(c.word_key for c in _subclasses(GCodeCannedCycle) if c.word_key))
 
 # --- Create Parser
-parser = argparse.ArgumentParser(description='Normalize gcode for machine consistency using different CAM software')
+parser = argparse.ArgumentParser(
+    description="Normalize gcode for machine consistency when using different CAM software"
+)
 parser.add_argument(
     'infile', type=argparse.FileType('r'),
     help="gcode file to normalize",
@@ -121,7 +123,7 @@ group.add_argument(
     '--arc_lin_method', '-alm', dest='arc_lin_method',
     type=arc_lin_method_type, default=DEFAULT_ARC_LIN_METHOD,
     help="Method of linearizing arcs, i=inner, o=outer, m=mid. List 2 "
-         "for <ccw>,<cw>, eg 'i,o'. 'i' is equivalent to 'i,i'. "
+         "for <cw>,<ccw>, eg 'i,o'. 'i' is equivalent to 'i,i'. "
          "(default: '%s')" % DEFAULT_ARC_LIN_METHOD,
     metavar='{i,o,m}[,{i,o,m}]',
 )
