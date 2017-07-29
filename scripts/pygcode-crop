@@ -14,7 +14,9 @@ for pygcode_lib_type in ('installed_lib', 'relative_lib'):
     try:
         # pygcode
         from pygcode import Machine, Mode
-        from pygcode import Line
+        from pygcode import Line, Comment
+        from pygcode import GCodePlaneSelect, GCodeSelectXYPlane
+        from pygcode import GCodeRapidMove
 
     except ImportError:
         import sys, os, inspect
@@ -131,9 +133,11 @@ def range_type(value):
 
 
 # --- Create Parser
-parser = argparse.ArgumentParser(description='Crop a gcode file down to the')
+parser = argparse.ArgumentParser(
+    description="Remove gcode before and after given 'from' and 'to' events"
+)
 parser.add_argument(
-    'infile', type=argparse.FileType('r'), nargs=1,
+    'infile', type=argparse.FileType('r'),
     help="gcode file to normalize",
 )
 parser.add_argument(
@@ -159,35 +163,52 @@ post_crop = False
 
 (is_first, is_last) = args.range
 
-
 for (i, line_str) in enumerate(args.infile.readlines()):
     line = Line(line_str)
 
-    # TODO: remember machine's maximum values for each axis
-    # TODO: based on machine.abs_pos
-
-    # remember machine's (relevant) state before processing
-    # TODO: create machine.__copy__ to copy position & state
+    # remember machine's state before processing the current line
     old_machine = copy(machine)
     machine.process_block(line.block)
 
     if pre_crop:
-        if is_first(i + 1, old_machine.pos):
+        if is_first(i + 1, machine.pos):
             # First line inside cropping range
             pre_crop = False
 
-            # TODO: print mode
-            print(old_machine.mode)
-            # TODO: position machine before first cropped line
-            # TODO: rapid move to Z (maximum Z)
-            # TODO: rapid move to X,Y
-            # TODO: rapid move to Z (machine.pos.Z)
+            # Set machine's accumulated mode (from everything that's been cut)
+            mode_str = str(old_machine.mode)
+            if mode_str:
+                print(Comment("machine mode before cropping"))
+                print(mode_str)
 
+            # Getting machine's current (modal) selected plane
+            plane = old_machine.mode.plane_selection
+            if not isinstance(plane, GCodePlaneSelect):
+                plane = GCodeSelectXYPlane()  # default to XY plane
+
+            # --- position machine before first cropped line
+            print(Comment("traverse into position, up, over, and down"))
+            # rapid move to Z (maximum Z the machine has experienced thus far)
+            print(GCodeRapidMove(**{
+                plane.normal_axis: getattr(old_machine.abs_range_max, plane.normal_axis),
+            }))
+            # rapid move to X,Y
+            print(GCodeRapidMove(**dict(
+                (k, v) for (k, v) in old_machine.pos.values.items()
+                if k in plane.plane_axes
+            )))
+            # rapid move to Z (machine.pos.Z)
+            print(GCodeRapidMove(**{
+                plane.normal_axis: getattr(old_machine.pos, plane.normal_axis),
+            }))
+            print('')
 
     if (pre_crop, post_crop) == (False, False):
-
-        print(line)
-
-        if is_last(i + 1, old_machine.pos):
-            # Last line in cropping range
-            post_crop = True
+        if is_last(i + 1, machine.pos):
+            # First line **outside** the area being cropped
+            #   (ie: this line won't be output)
+            post_crop = True  # although, irrelevant because...
+            break
+        else:
+            # inside cropping area
+            print(line)

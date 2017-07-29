@@ -824,9 +824,11 @@ class GCodePlaneSelect(GCode):
     #   vectorYZ = GCodeSelectYZPlane.quat * (GCodeSelectZXPlane.quat.conjugate() * vectorZX)
     quat = None  # Quaternion
 
-    # -- Plane Normal
+    # -- Plane Axis Information
     # Vector normal to plane (such that XYZ axes follow the right-hand rule)
     normal_axis = None  # Letter of normal axis (upper case)
+    # Axes of plane
+    plane_axes = set()
     normal = None  # Vector3
 
 
@@ -835,6 +837,7 @@ class GCodeSelectXYPlane(GCodePlaneSelect):
     word_key = Word('G', 17)
     quat = Quaternion()  # no effect
     normal_axis = 'Z'
+    plane_axes = set('XY')
     normal = Vector3(0., 0., 1.)
 
 
@@ -846,6 +849,7 @@ class GCodeSelectZXPlane(GCodePlaneSelect):
         Vector3(0., 0., 1.), Vector3(1., 0., 0.)
     )
     normal_axis = 'Y'
+    plane_axes = set('ZX')
     normal = Vector3(0., 1., 0.)
 
 
@@ -857,6 +861,7 @@ class GCodeSelectYZPlane(GCodePlaneSelect):
         Vector3(0., 1., 0.), Vector3(0., 0., 1.)
     )
     normal_axis = 'X'
+    plane_axes = set('YZ')
     normal = Vector3(1., 0., 0.)
 
 

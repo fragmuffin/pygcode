@@ -52,6 +52,9 @@ class Position(object):
         self._value = defaultdict(lambda: 0.0, dict((k, 0.0) for k in self.axes))
         self._value.update(kwargs)
 
+    def __copy__(self):
+        return self.__class__(axes=copy(self.axes), unit=self._unit, **self.values)
+
     def update(self, **coords):
         for (k, v) in coords.items():
             setattr(self, k, v)
@@ -73,10 +76,6 @@ class Position(object):
             raise MachineInvalidAxis("'%s' axis is not defined to be set" % key)
         else:
             self.__dict__[key] = value
-
-    # Copy
-    def __copy__(self):
-        return self.__class__(axes=copy(self.axes), unit=self._unit, **self.values)
 
     # Equality
     def __eq__(self, other):
@@ -137,6 +136,36 @@ class Position(object):
                 self._value[k] *= factor
             self._unit = value
 
+    # Min/Max
+    @classmethod
+    def _cmp(cls, p1, p2, key):
+        """
+        Returns a position of the combined min/max values for each axis
+        (eg: key=min for)
+        note: the result is not necessarily equal to either p1 or p2.
+        :param p1: Position instance
+        :param p2: Position instance
+        :return: Position instance with the highest/lowest value per axis
+        """
+        if p2.unit != p1.unit:
+            p2 = copy(p2)
+            p2.unit = p1.unit
+        return cls(
+            unit=p1.unit,
+            **dict(
+                (k, key(getattr(p1, k), getattr(p2, k))) for k in p1.values
+            )
+        )
+
+    @classmethod
+    def min(cls, a, b):
+        return cls._cmp(a, b, key=min)
+
+    @classmethod
+    def max(cls, a, b):
+        return cls._cmp(a, b, key=max)
+
+    # Words & Values
     @property
     def words(self):
         return sorted(Word(k, self._value[k]) for k in self.axes)
@@ -149,6 +178,7 @@ class Position(object):
     def vector(self):
         return Vector3(self._value['X'], self._value['Y'], self._value['Z'])
 
+    # String representation(s)
     def __repr__(self):
         return "<{class_name}: {coordinates}>".format(
             class_name=self.__class__.__name__,
@@ -157,12 +187,13 @@ class Position(object):
 
 
 class CoordinateSystem(object):
-    def __init__(self, axes):
-        self.offset = Position(axes)
+    def __init__(self, axes=None):
+        self.offset = Position(axes=axes)
 
-    def __add__(self, other):
-        if isinstance(other, CoordinateSystem):
-            pass
+    def __copy__(self):
+        obj = self.__class__()
+        obj.offset = copy(self.offset)
+        return obj
 
     def __repr__(self):
         return "<{class_name}: offset={offset}>".format(
@@ -178,6 +209,7 @@ class State(object):
     # AFAIK: this is everything needed to remember a machine's state that isn't
     #        handled by modal gcodes.
     def __init__(self, axes=None):
+        self._axes = axes
         # Coordinate Systems
         self.coord_systems = {}
         for i in range(1, 10): # G54-G59.3
@@ -205,6 +237,12 @@ class State(object):
         #   - G10 L20: makes the current machine coordinates the coordinate system's offset
         # Coordinate System selection:
         #   - G54-G59: select coordinate system (offsets from machine coordinates set by G10 L2)
+
+    def __copy__(self):
+        obj = self.__class__(axes=self._axes)
+        obj.coord_systems = [copy(cs) for cs in self.coord_systems]
+        obj.offset = copy(self.offset)
+        return obj
 
     @property
     def coord_sys(self):
@@ -249,11 +287,17 @@ class Mode(object):
 
     # Mode is defined by gcodes set by processed blocks:
     #   see modal_group in gcode.py module for details
-    def __init__(self):
+    def __init__(self, set_default=True):
         self.modal_groups = defaultdict(lambda: None)
 
         # Initialize
-        self.set_mode(*Line(self.default_mode).block.gcodes)
+        if set_default:
+            self.set_mode(*Line(self.default_mode).block.gcodes)
+
+    def __copy__(self):
+        obj = self.__class__(set_default=False)
+        obj.modal_groups = deepcopy(self.modal_groups)
+        return obj
 
     def set_mode(self, *gcode_list):
         """
@@ -335,6 +379,18 @@ class Machine(object):
 
         # Absolute machine position
         self.abs_pos = self.Position()
+        # Machine's motion range (min/max corners of a bounding box)
+        self.abs_range_min = copy(self.abs_pos)
+        self.abs_range_max = copy(self.abs_pos)
+
+    def __copy__(self):
+        obj = self.__class__()
+        obj.mode = copy(self.mode)
+        obj.state = copy(self.state)
+        obj.abs_pos = copy(self.abs_pos)
+        obj.abs_range_min = copy(self.abs_range_min)
+        obj.abs_range_max = copy(self.abs_range_max)
+        return obj
 
     def set_mode(self, *gcode_list):
         self.mode.set_mode(*gcode_list)  # passthrough
@@ -425,6 +481,11 @@ class Machine(object):
         coord_sys_offset = getattr(self.state.coord_sys, 'offset', Position(axes=self.axes))
         temp_offset = self.state.offset
         self.abs_pos = (value + temp_offset) + coord_sys_offset
+        self._update_abs_range(self.abs_pos)
+
+    def _update_abs_range(self, pos):
+        self.abs_range_min = Position.min(pos, self.abs_range_min)
+        self.abs_range_max = Position.max(pos, self.abs_range_max)
 
     # =================== Machine Actions ===================
     def move_to(self, rapid=False, **coords):
