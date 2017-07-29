@@ -32,6 +32,7 @@ INSTALL_REQUIRES = [
 ]
 SCRIPTS = [
     'scripts/pygcode-norm',
+    'scripts/pygcode-crop',
 ]
 
 ###################################################################
