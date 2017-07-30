@@ -1,0 +1,245 @@
+#!/usr/bin/env python
+
+# Script to remove commands of a gcode file before and after the given range.
+# All gcodes before the given line will be replaced with equivalent rapid
+# movements to get to the right position. Initial rapid movement will first move
+# to the maximum Z value used in the removed portion, then move to XY,
+# then move down to the correct Z.
+
+import argparse
+import re
+from copy import copy
+
+for pygcode_lib_type in ('installed_lib', 'relative_lib'):
+    try:
+        # pygcode
+        from pygcode import Machine, Mode
+        from pygcode import Line, Comment
+        from pygcode import GCodePlaneSelect, GCodeSelectXYPlane
+        from pygcode import GCodeRapidMove
+
+    except ImportError:
+        import sys, os, inspect
+        # Add pygcode (relative to this test-path) to the system path
+        _this_path = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
+        sys.path.insert(0, os.path.join(_this_path, '..', 'src'))
+        if pygcode_lib_type == 'installed_lib':
+            continue # import was attempted before sys.path addition. retry import
+        raise # otherwise the raised ImportError is a genuine problem
+    break
+
+
+# =================== Command Line Arguments ===================
+# --- Types
+def range_type(value):
+    """
+    Return (is_first, is_last) such that is_first(n, pos) will return True if
+    the gcode's current line is the first to be cropped, and similarly for the
+    last line.
+    :param value: string given as argument
+    :return: (is_first, is_last) callables
+    """
+    # All files are cropped from one line, to another, identifying these lines is
+    # done via the [first] and [last] cropping criteria.
+    #   - Line numbers (parameters: n)
+    #   - Machine position (parameters: a,b,c,x,y,z)
+    # Comparisons, all with <letter><comparison><number>
+    #   - = (or ==) equal to
+    #   - != not equal to
+    #   - < less than
+    #   - <= less than or equal to
+    #   - > greater than
+    #   - >= greater than or equal to
+    match = re.search(r'^(?P<first>[^:]*):(?P<last>[^:]*)$', value)
+    if not match:
+        raise argparse.ArgumentTypeError("'%s' range invalid format" % value)
+
+    def _cmp(cmp_str):
+        """
+        Convert strings like
+            'x>10.3'
+        into a callable equivalent to:
+            lambda n, pos: pos.X > 10.3
+        where:
+            n is the file's line number
+            pos is the machine's position (Position) instance
+        :param cmp_str: comparison string of the form: '<param><cmp><value>'
+        :return: callable
+        """
+        CMP_MAP = {
+            '=': lambda a, b: a == b,
+            '==': lambda a, b: a == b,
+            '!=': lambda a, b: a != b,
+            '<': lambda a, b: a < b,
+            '<=': lambda a, b: a <= b,
+            '>': lambda a, b: a > b,
+            '>=': lambda a, b: a >= b,
+        }
+        # split comparison into (param, cmp, value)
+        m = re.search(
+            r'''^\s*
+                (
+                    (?P<param>[abcnxyz])?\s*  # parameter
+                    (?P<cmp>(==?|!=|<=?|>=?))   # comparison
+                )?\s* # parameter & comparison defaults to "n="
+                (?P<value>-?\d+(\.\d+)?)\s*
+            $''',
+            cmp_str, re.IGNORECASE | re.MULTILINE | re.VERBOSE
+        )
+        if not m:
+            raise argparse.ArgumentTypeError("'%s' range comparison invalid" % cmp_str)
+        (param, cmp, val) = (
+            (m.group('param') or 'N').upper(),  # default to 'N'
+            m.group('cmp') or '=',  # default to '='
+            m.group('value')
+        )
+
+        # convert to lambda
+        if param == 'N':
+            if float(val) % 1:
+                raise argparse.ArgumentTypeError("'%s' line number must be an integer" % cmp_str)
+            return lambda n, pos: CMP_MAP[cmp](n, float(val))
+        else:
+            return lambda n, pos: CMP_MAP[cmp](getattr(pos, param), float(val))
+
+    def _cmp_group(group_str, default):
+        """
+        Split given group_str by ',' and return callable that will return True
+        only if all comparisons are true.
+        So if group_str is:
+            x>=10.4,z>1
+        return will be a callable equivalent to:
+            lambda n, pos: (pos.X >= 10.4) and (pos.Z > 1)
+        (see _cmp for more detail)
+        :param group_str: string of _cmp valid strings delimited by ','s
+        :param default: default callable if group_str is falsey
+        :return: callable that returns True if all cmp's are true
+        """
+        if not group_str:
+            return default
+        cmp_list = []
+        for cmp_str in group_str.split(','):
+            cmp_list.append(_cmp(cmp_str))
+        return lambda n, pos: all(x(n, pos) for x in cmp_list)
+
+
+    is_first = _cmp_group(match.group('first'), lambda n, pos: True)
+    is_last = _cmp_group(match.group('last'), lambda n, pos: False)
+
+    return (is_first, is_last)
+
+
+# --- Defaults
+
+
+# --- Create Parser
+parser = argparse.ArgumentParser(
+    description="Remove gcode before and after given 'from' and 'to' conditions.",
+    epilog="Range Format:"
+    """
+    range must be of the format:
+        [condition[,condition...]]:[condition[,condition...]]
+    the first condition(s) are true for the first line included in the cropped area
+    the second set are true for the first line excluded after the cropped area
+
+    Conditions:
+    each condition is of the format:
+        {variable}{operation}{number}
+    or, more specifically:
+        [[{a,b,c,n,x,y,z}]{=,!=,<,<=,>,>=}]{number}
+
+    Condition Variables:
+        n     - file's line number
+        a|b|c - machine's angular axes
+        x|y|z - machine's linear axes
+
+    Example Ranges:
+        "100:200" will crop lines 100-199 (inclusive)
+        "z<=-2:" will isolate everything after the machine crosses z=-2
+        "x>10,y>10:n>=123" starts cropped area where both x and y exceed 10,
+            but only before line 123
+
+    Limitations:
+        Only takes points from start and finish of a gcode operation, so a line
+        through a condition region, or an arc that crosses a barrier will NOT
+        trigger the start or stop of cropping.
+        Probe alignment operations will not change virtual machine's position.
+    """,
+    formatter_class=argparse.RawTextHelpFormatter,
+)
+parser.add_argument(
+    'infile', type=argparse.FileType('r'),
+    help="gcode file to crop",
+)
+parser.add_argument(
+    'range', type=range_type,
+    help="file range to crop, format [from]:[to] (details below)",
+)
+
+
+# --- Parse Arguments
+args = parser.parse_args()
+
+
+# =================== Cropping File ===================
+
+# --- Machine
+class NullMachine(Machine):
+    MODE_CLASS = type('NullMode', (Mode,), {'default_mode': ''})
+
+machine = NullMachine()
+
+pre_crop = True
+post_crop = False
+
+(is_first, is_last) = args.range
+
+for (i, line_str) in enumerate(args.infile.readlines()):
+    line = Line(line_str)
+
+    # remember machine's state before processing the current line
+    old_machine = copy(machine)
+    machine.process_block(line.block)
+
+    if pre_crop:
+        if is_first(i + 1, machine.pos):
+            # First line inside cropping range
+            pre_crop = False
+
+            # Set machine's accumulated mode (from everything that's been cut)
+            mode_str = str(old_machine.mode)
+            if mode_str:
+                print(Comment("machine mode before cropping"))
+                print(mode_str)
+
+            # Getting machine's current (modal) selected plane
+            plane = old_machine.mode.plane_selection
+            if not isinstance(plane, GCodePlaneSelect):
+                plane = GCodeSelectXYPlane()  # default to XY plane
+
+            # --- position machine before first cropped line
+            print(Comment("traverse into position, up, over, and down"))
+            # rapid move to Z (maximum Z the machine has experienced thus far)
+            print(GCodeRapidMove(**{
+                plane.normal_axis: getattr(old_machine.abs_range_max, plane.normal_axis),
+            }))
+            # rapid move to X,Y
+            print(GCodeRapidMove(**dict(
+                (k, v) for (k, v) in old_machine.pos.values.items()
+                if k in plane.plane_axes
+            )))
+            # rapid move to Z (machine.pos.Z)
+            print(GCodeRapidMove(**{
+                plane.normal_axis: getattr(old_machine.pos, plane.normal_axis),
+            }))
+            print('')
+
+    if (pre_crop, post_crop) == (False, False):
+        if is_last(i + 1, machine.pos):
+            # First line **outside** the area being cropped
+            #   (ie: this line won't be output)
+            post_crop = True  # although, irrelevant because...
+            break
+        else:
+            # inside cropping area
+            print(line)

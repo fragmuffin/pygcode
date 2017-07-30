@@ -23,13 +23,13 @@ for pygcode_lib_type in ('installed_lib', 'relative_lib'):
         from pygcode.transform import linearize_arc, simplify_canned_cycle
         from pygcode.transform import ArcLinearizeInside, ArcLinearizeOutside, ArcLinearizeMid
         from pygcode.gcodes import _subclasses
-        from pygcode.utils import omit_redundant_modes
+        from pygcode import utils
 
     except ImportError:
         import sys, os, inspect
         # Add pygcode (relative to this test-path) to the system path
         _this_path = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
-        sys.path.insert(0, os.path.join(_this_path, '..'))
+        sys.path.insert(0, os.path.join(_this_path, '..', 'src'))
         if pygcode_lib_type == 'installed_lib':
             continue # import was attempted before sys.path addition. retry import
         raise # otherwise the raised ImportError is a genuine problem
@@ -37,6 +37,43 @@ for pygcode_lib_type in ('installed_lib', 'relative_lib'):
 
 
 # =================== Command Line Arguments ===================
+# --- Types
+def arc_lin_method_type(value):
+    """
+    :return: {Word('G2'): <linearize method class>, ... }
+    """
+    ARC_LIN_CLASS_MAP = {
+        'i': ArcLinearizeInside,
+        'o': ArcLinearizeOutside,
+        'm': ArcLinearizeMid,
+    }
+
+    value_dict = defaultdict(lambda: ArcLinearizeMid)
+    if value:
+        match = re.search(r'^(?P<g2>[iom])(,(?P<g3>[iom]))?$', value, re.IGNORECASE)
+        if not match:
+            raise argparse.ArgumentTypeError("invalid format '%s'" % value)
+
+        value_dict = {
+            Word('g2'): ARC_LIN_CLASS_MAP[match.group('g2')],
+            Word('g3'): ARC_LIN_CLASS_MAP[match.group('g2')],
+        }
+        if match.group('g3'):
+            value_dict[Word('g3')] = ARC_LIN_CLASS_MAP[match.group('g3')]
+
+    return value_dict
+
+def word_list_type(value):
+    """
+    :return: [Word('G73'), Word('G89'), ... ]
+    """
+    canned_code_words = set()
+    for word_str in re.split(r'\s*,\s*', value):
+        canned_code_words.add(Word(word_str))
+
+    return canned_code_words
+
+
 # --- Defaults
 DEFAULT_PRECISION = 0.005  # mm
 DEFAULT_MACHINE_MODE = 'G0 G54 G17 G21 G90 G94 M5 M9 T0 F0 S0'
@@ -44,16 +81,24 @@ DEFAULT_ARC_LIN_METHOD = 'm'
 DEFAULT_CANNED_CODES = ','.join(str(w) for w in sorted(c.word_key for c in _subclasses(GCodeCannedCycle) if c.word_key))
 
 # --- Create Parser
-parser = argparse.ArgumentParser(description='Normalize gcode for machine consistency using different CAM software')
+parser = argparse.ArgumentParser(
+    description="Normalize gcode for machine consistency when using different CAM software"
+)
 parser.add_argument(
-    'infile', type=argparse.FileType('r'), nargs=1,
+    'infile', type=argparse.FileType('r'),
     help="gcode file to normalize",
 )
 
 parser.add_argument(
-    '--precision', '-p', dest='precision', type=float, default=DEFAULT_PRECISION,
-    help="maximum positional error when generating gcodes (eg: arcs to lines) "
-         "(default: %g)" % DEFAULT_PRECISION,
+    '--singles', '-s', dest='singles',
+    action='store_const', const=True, default=False,
+    help="only output one command per gcode line",
+)
+parser.add_argument(
+    '--full', '-f', dest='full',
+    action='store_const', const=True, default=False,
+    help="output full commands, any modal parameters will be acompanied with "
+         "the fully qualified gcode command",
 )
 
 # Machine
@@ -67,7 +112,7 @@ group = parser.add_argument_group(
     "Arc Linearizing",
     "Converting arcs (G2/G3 codes) into linear interpolations (G1 codes) to "
     "aproximate the original arc. Indistinguishable from an original arc when "
-    "--precision is set low enough."
+    "--arc_precision is set low enough."
 )
 group.add_argument(
     '--arc_linearize', '-al', dest='arc_linearize',
@@ -75,12 +120,25 @@ group.add_argument(
     help="convert G2,G3 commands to a series of linear interpolations (G1 codes)",
 )
 group.add_argument(
-    '--arc_lin_method', '-alm', dest='arc_lin_method', default=DEFAULT_ARC_LIN_METHOD,
+    '--arc_lin_method', '-alm', dest='arc_lin_method',
+    type=arc_lin_method_type, default=DEFAULT_ARC_LIN_METHOD,
     help="Method of linearizing arcs, i=inner, o=outer, m=mid. List 2 "
-         "for <ccw>,<cw>, eg 'i,o'. 'i' is equivalent to 'i,i'. "
+         "for <cw>,<ccw>, eg 'i,o'. 'i' is equivalent to 'i,i'. "
          "(default: '%s')" % DEFAULT_ARC_LIN_METHOD,
     metavar='{i,o,m}[,{i,o,m}]',
 )
+group.add_argument(
+    '--arc_precision', '-alp', dest='arc_precision', type=float, default=DEFAULT_PRECISION,
+    help="maximum positional error when creating linear interpolation codes "
+         "(default: %g)" % DEFAULT_PRECISION,
+)
+
+#parser.add_argument(
+#    '--arc_alignment', '-aa', dest='arc_alignment', type=str, choices=('XYZ','IJK','R'),
+#    default=None,
+#    help="enforce precision on arcs, if XYZ the destination is altered to match the radius"
+#         "if IJK or R then the arc'c centre point is moved to assure precision",
+#)
 
 # Canned Cycles
 group = parser.add_argument_group(
@@ -94,54 +152,41 @@ group.add_argument(
     help="Expand canned cycles into basic linear movements, and pauses",
 )
 group.add_argument(
-    '---canned_codes', '-cc', dest='canned_codes', default=DEFAULT_CANNED_CODES,
+    '--canned_codes', '-cc', dest='canned_codes',
+    type=word_list_type, default=DEFAULT_CANNED_CODES,
     help="List of canned gcodes to expand, (default is '%s')" % DEFAULT_CANNED_CODES,
 )
 
-#parser.add_argument(
-#    '--arc_alignment', '-aa', dest='arc_alignment', type=str, choices=('XYZ','IJK','R'),
-#    default=None,
-#    help="enforce precision on arcs, if XYZ the destination is altered to match the radius"
-#         "if IJK or R then the arc'c centre point is moved to assure precision",
-#)
+# Removing non-functional content
+group = parser.add_argument_group(
+    "Removing Content",
+    "options for the removal of content"
+)
+group.add_argument(
+    '--rm_comments', '-rc', dest='rm_comments',
+    action='store_const', const=True, default=False,
+    help="remove all comments (non-functional)",
+)
+group.add_argument(
+    '--rm_blanks', '-rb', dest='rm_blanks',
+    action='store_const', const=True, default=False,
+    help="remove all empty lines (non-functional)",
+)
+group.add_argument(
+    '--rm_whitespace', '-rws', dest='rm_whitespace',
+    action='store_const', const=True, default=False,
+    help="remove all whitespace from gcode blocks (non-functional)",
+)
+group.add_argument(
+    '--rm_gcodes', '-rmg', dest='rm_gcodes',
+    type=word_list_type, default=[],
+    help="remove gcode (and it's parameters) with words in the given list "
+         "(eg: M6,G43) (note: only works for modal params with --full)",
+)
+
 
 # --- Parse Arguments
 args = parser.parse_args()
-
-
-# --- Manually Parsing : Arc Linearizing Method
-# args.arc_lin_method = {Word('G2'): <linearize method class>, ... }
-ARC_LIN_CLASS_MAP = {
-    'i': ArcLinearizeInside,
-    'o': ArcLinearizeOutside,
-    'm': ArcLinearizeMid,
-}
-
-arc_lin_method_regex = re.compile(r'^(?P<g2>[iom])(,(?P<g3>[iom]))?$', re.I)
-if args.arc_lin_method:
-    match = arc_lin_method_regex.search(args.arc_lin_method)
-    if not match:
-        raise RuntimeError("parameter for --arc_lin_method is invalid: '%s'" % args.arc_lin_method)
-
-    # changing args.arc_lin_method (because I'm a fiend)
-    args.arc_lin_method = {}
-    args.arc_lin_method[Word('g2')] = ARC_LIN_CLASS_MAP[match.group('g2')]
-    if match.group('g3'):
-        args.arc_lin_method[Word('g3')] = ARC_LIN_CLASS_MAP[match.group('g3')]
-    else:
-        args.arc_lin_method[Word('g3')] = args.arc_lin_method[Word('g2')]
-else:
-    # FIXME: change default to ArcLinearizeMid (when it's working)
-    args.arc_lin_method = defaultdict(lambda: ArcLinearizeMid) # just to be sure
-
-
-# --- Manually Parsing : Canned Codes
-# args.canned_codes = [Word('G73'), Word('G89'), ... ]
-canned_code_words = set()
-for word_str in re.split(r'\s*,\s*', args.canned_codes):
-    canned_code_words.add(Word(word_str))
-
-args.canned_codes = canned_code_words
 
 
 # =================== Create Virtual CNC Machine ===================
@@ -154,6 +199,46 @@ class MyMachine(Machine):
 machine = MyMachine()
 
 # =================== Utility Functions ===================
+omit_redundant_modes = utils.omit_redundant_modes
+if args.full:
+    omit_redundant_modes = lambda gcode_iter: gcode_iter  # bypass
+
+def write(gcodes, modal_params=tuple(), comment=None):
+    """
+    Write to output, while enforcing the flags:
+        args.singles
+        args.rm_comments
+        args.rm_blanks
+        args.rm_whitespace
+    :param obj: Line, Block, GCode or Comment instance
+    """
+    assert not(args.full and modal_params), "with full specified, this should never be called with modal_params"
+    if args.singles and len(gcodes) > 1:
+        for g in sorted(gcodes):
+            write([g], comment=comment)
+    else:
+        # remove comments
+        if args.rm_comments:
+            comment = None
+        # remove particular gcodes
+        if args.rm_gcodes:
+            gcodes = [g for g in gcodes if g.word not in args.rm_gcodes]
+
+        # Convert to string & write to file (or stdout)
+        block_str = ' '.join(str(x) for x in (list(gcodes) + list(modal_params)))
+        if args.rm_whitespace:
+            block_str = re.sub(r'\s', '', block_str)
+
+        line_list = []
+        if block_str:
+            line_list.append(block_str)
+        if comment:
+            line_list.append(str(comment))
+        line_str = ' '.join(line_list)
+        if line_str or not args.rm_blanks:
+            print(line_str)
+
+
 def gcodes2str(gcodes):
     return ' '.join("%s" % g for g in gcodes)
 
@@ -167,25 +252,26 @@ def split_and_process(gcode_list, gcode_class, comment):
     :param comment: Comment instance, or None
     """
     (befores, (g,), afters) = split_gcodes(gcode_list, gcode_class)
-    # print & process those before gcode_class instance
+    # write & process those before gcode_class instance
     if befores:
-        print(gcodes2str(befores))
+        write(befores)
         machine.process_gcodes(*befores)
     # yield, then process gcode_class instance
     yield g
     machine.process_gcodes(g)
-    # print & process those after gcode_class instance
+    # write & process those after gcode_class instance
     if afters:
-        print(gcodes2str(afters))
+        write(afters)
         machine.process_gcodes(*afters)
-    # print comment (if given)
+    # write comment (if given)
     if comment:
-        print(str(line.comment))
+        write([], comment=line.comment)
+
 
 
 # =================== Process File ===================
 
-for line_str in args.infile[0].readlines():
+for line_str in args.infile.readlines():
     line = Line(line_str)
 
     # Effective G-Codes:
@@ -194,7 +280,7 @@ for line_str in args.infile[0].readlines():
 
     if args.arc_linearize and any(isinstance(g, GCodeArcMove) for g in effective_gcodes):
         with split_and_process(effective_gcodes, GCodeArcMove, line.comment) as arc:
-            print(Comment("linearized arc: %r" % arc))
+            write([], comment=Comment("linearized arc: %r" % arc))
             linearize_params = {
                 'arc_gcode': arc,
                 'start_pos': machine.pos,
@@ -202,15 +288,15 @@ for line_str in args.infile[0].readlines():
                 'method_class': args.arc_lin_method[arc.word],
                 'dist_mode': machine.mode.distance,
                 'arc_dist_mode': machine.mode.arc_ijk_distance,
-                'max_error': args.precision,
+                'max_error': args.arc_precision,
                 'decimal_places': 3,
             }
             for linear_gcode in omit_redundant_modes(linearize_arc(**linearize_params)):
-                print(linear_gcode)
+                write([linear_gcode])
 
     elif args.canned_expand and any((g.word in args.canned_codes) for g in effective_gcodes):
         with split_and_process(effective_gcodes, GCodeCannedCycle, line.comment) as canned:
-            print(Comment("expanded: %r" % canned))
+            write([], comment=Comment("expanded: %r" % canned))
             simplify_canned_params = {
                 'canned_gcode': canned,
                 'start_pos': machine.pos,
@@ -219,8 +305,11 @@ for line_str in args.infile[0].readlines():
                 'axes': machine.axes,
             }
             for simplified_gcode in omit_redundant_modes(simplify_canned_cycle(**simplify_canned_params)):
-                print(simplified_gcode)
+                write([simplified_gcode])
 
     else:
-        print(str(line))
+        if args.full:
+            write(effective_gcodes, comment=line.comment)
+        else:
+            write(line.block.gcodes, modal_params=line.block.modal_params, comment=line.comment)
         machine.process_block(line.block)

@@ -7,7 +7,7 @@ from .gcodes import GCodeAbsoluteDistanceMode, GCodeIncrementalDistanceMode
 from .gcodes import GCodeAbsoluteArcDistanceMode, GCodeIncrementalArcDistanceMode
 from .gcodes import GCodeCannedCycle
 from .gcodes import GCodeDrillingCyclePeck, GCodeDrillingCycleDwell, GCodeDrillingCycleChipBreaking
-from .gcodes import GCodeCannedReturnMode, GCodeCannedCycleReturnLevel, GCodeCannedCycleReturnToR
+from .gcodes import GCodeCannedReturnMode, GCodeCannedCycleReturnPrevLevel, GCodeCannedCycleReturnToR
 from .gcodes import _gcodes_abs2rel
 
 from .machine import Position
@@ -381,7 +381,7 @@ def linearize_arc(arc_gcode, start_pos, plane=None, method_class=None,
 
 DEFAULT_SCC_PLANE = GCodeSelectXYPlane
 DEFAULT_SCC_DISTMODE = GCodeAbsoluteDistanceMode
-DEFAULT_SCC_RETRACTMODE = GCodeCannedCycleReturnLevel
+DEFAULT_SCC_RETRACTMODE = GCodeCannedCycleReturnPrevLevel
 
 def simplify_canned_cycle(canned_gcode, start_pos,
                           plane=None, dist_mode=None, retract_mode=None,

@@ -96,7 +96,7 @@ MODAL_GROUP_MAP = {
 
     # Traditionally Non-grouped:
     #   Although these GCodes set the machine's mode, there are no other GCodes to
-    #   group with them. So although they're modal, they doesn't have a defined
+    #   group with them. So although they're modal, they don't have a defined
     #   modal group.
     #   However, having a modal group assists with:
     #       - validating gcode blocks for conflicting commands
@@ -218,14 +218,28 @@ class GCode(object):
             return copy(self.word_key)
         raise AssertionError("class %r has no default word" % self.__class__)
 
-    # Comparisons
+    # Equality
+    def __eq__(self, other):
+        return (
+            (self.word == other.word) and
+            (self.params == other.params)
+        )
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
+
+    # Sort by execution order
     def __lt__(self, other):
-        """Sort by execution order"""
         return self.exec_order < other.exec_order
 
+    def __le__(self, other):
+        return self.exec_order <= other.exec_order
+
     def __gt__(self, other):
-        """Sort by execution order"""
         return self.exec_order > other.exec_order
+
+    def __ge__(self, other):
+        return self.exec_order >= other.exec_order
 
     # Parameters
     def add_parameter(self, word):
@@ -483,10 +497,18 @@ class GCodeCannedCycle(GCode):
         if isinstance(machine.mode.canned_cycles_return, GCodeCannedCycleReturnToR):
             # canned return is to this.R, not this.Z (plane dependent)
             moveto_coords.update({
-                machine.mode.plane_selection.normal_axis: this.R,
+                machine.mode.plane_selection.normal_axis: self.R,
             })
+        else:  # default: GCodeCannedCycleReturnPrevLevel
+            # Remove this.Z (plane dependent) value (ie: no machine movement on this axis)
+            moveto_coords.pop(machine.mode.plane_selection.normal_axis, None)
 
-        machine.move_to(**moveto_coords)
+        # Process action 'L' times
+        loop_count = self.L
+        if (loop_count is None) or (loop_count <= 0):
+            loop_count = 1
+        for i in range(loop_count):
+            machine.move_to(**moveto_coords)
 
 
 class GCodeDrillingCycle(GCodeCannedCycle):
@@ -802,9 +824,11 @@ class GCodePlaneSelect(GCode):
     #   vectorYZ = GCodeSelectYZPlane.quat * (GCodeSelectZXPlane.quat.conjugate() * vectorZX)
     quat = None  # Quaternion
 
-    # -- Plane Normal
+    # -- Plane Axis Information
     # Vector normal to plane (such that XYZ axes follow the right-hand rule)
     normal_axis = None  # Letter of normal axis (upper case)
+    # Axes of plane
+    plane_axes = set()
     normal = None  # Vector3
 
 
@@ -813,6 +837,7 @@ class GCodeSelectXYPlane(GCodePlaneSelect):
     word_key = Word('G', 17)
     quat = Quaternion()  # no effect
     normal_axis = 'Z'
+    plane_axes = set('XY')
     normal = Vector3(0., 0., 1.)
 
 
@@ -824,6 +849,7 @@ class GCodeSelectZXPlane(GCodePlaneSelect):
         Vector3(0., 0., 1.), Vector3(1., 0., 0.)
     )
     normal_axis = 'Y'
+    plane_axes = set('ZX')
     normal = Vector3(0., 1., 0.)
 
 
@@ -835,6 +861,7 @@ class GCodeSelectYZPlane(GCodePlaneSelect):
         Vector3(0., 1., 0.), Vector3(0., 0., 1.)
     )
     normal_axis = 'X'
+    plane_axes = set('YZ')
     normal = Vector3(1., 0., 0.)
 
 
@@ -929,7 +956,7 @@ class GCodeCannedReturnMode(GCode):
     exec_order = 220
 
 
-class GCodeCannedCycleReturnLevel(GCodeCannedReturnMode):
+class GCodeCannedCycleReturnPrevLevel(GCodeCannedReturnMode):
     """G98: Canned Cycle Return to the level set prior to cycle start"""
     # "retract to the position that axis was in just before this series of one or more contiguous canned cycles was started"
     word_key = Word('G', 98)

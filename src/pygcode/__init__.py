@@ -6,7 +6,7 @@
 #   1.x                 - Development Status :: 5 - Production/Stable
 #   <any above>.y       - developments on that version (pre-release)
 #   <any above>*.dev*   - development release (intended purely to test deployment)
-__version__ = "0.1.0"
+__version__ = "0.1.1"
 
 __title__ = "pygcode"
 __description__ = "Basic g-code parser, interpreter, and encoder library."
@@ -53,7 +53,7 @@ __all__ = [
     'GCodeCancelCannedCycle',
     'GCodeCancelToolLengthOffset',
     'GCodeCannedCycle',
-    'GCodeCannedCycleReturnLevel',
+    'GCodeCannedCycleReturnPrevLevel',
     'GCodeCannedCycleReturnToR',
     'GCodeCannedReturnMode',
     'GCodeCoolant',
@@ -199,7 +199,7 @@ from .gcodes import (
     # G83       - GCodeDrillingCyclePeck: G83: Drilling Cycle, Peck
     # G76       - GCodeThreadingCycle: G76: Threading Cycle
     #         - GCodeCannedReturnMode:
-    # G98       - GCodeCannedCycleReturnLevel: G98: Canned Cycle Return to the level set prior to cycle start
+    # G98       - GCodeCannedCycleReturnPrevLevel: G98: Canned Cycle Return to the level set prior to cycle start
     # G99       - GCodeCannedCycleReturnToR: G99: Canned Cycle Return to the level set by R
     #         - GCodeCoolant:
     # M08       - GCodeCoolantFloodOn: M8: turn flood coolant on
@@ -330,7 +330,7 @@ from .gcodes import (
     GCodeCancelCannedCycle,
     GCodeCancelToolLengthOffset,
     GCodeCannedCycle,
-    GCodeCannedCycleReturnLevel,
+    GCodeCannedCycleReturnPrevLevel,
     GCodeCannedCycleReturnToR,
     GCodeCannedReturnMode,
     GCodeCoolant,
