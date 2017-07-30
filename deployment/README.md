@@ -127,7 +127,7 @@ password=secret
 ## Upload to PyPi Test server
 
 ```
-./deploy.sh test
+./deploy.sh deploy test
 ```
 
 **Test**
@@ -153,7 +153,7 @@ to make sure it's sane
 all good!? sweet :+1: time to upload to 'production'
 
 ```
-./deploy.sh prod
+./deploy.sh deploy prod
 ```
 
 **Test**
