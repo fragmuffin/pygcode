@@ -410,7 +410,9 @@ class Machine(object):
             raise MachineInvalidState("unable to assign modal parameters when no motion mode is set")
         params = copy(self.mode.motion.params)  # dict
         params.update(dict((w.letter, w) for w in modal_params))  # override retained modal parameters
-        (modal_gcodes, unasigned_words) = words2gcodes([self.mode.motion.word] + params.values())
+        (modal_gcodes, unasigned_words) = words2gcodes(
+            [self.mode.motion.word] + list(params.values())
+        )
         if unasigned_words:
             raise MachineInvalidState("modal parameters '%s' cannot be assigned when in mode: %r" % (
                 ' '.join(str(x) for x in unasigned_words), self.mode
