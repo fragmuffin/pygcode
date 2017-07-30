@@ -42,7 +42,7 @@ def range_type(value):
     # All files are cropped from one line, to another, identifying these lines is
     # done via the [first] and [last] cropping criteria.
     #   - Line numbers (parameters: n)
-    #   - Machine position (parameters: x,y,z,a,b,c,u,v,w)
+    #   - Machine position (parameters: a,b,c,x,y,z)
     # Comparisons, all with <letter><comparison><number>
     #   - = (or ==) equal to
     #   - != not equal to
@@ -79,7 +79,7 @@ def range_type(value):
         m = re.search(
             r'''^\s*
                 (
-                    (?P<param>[abcnuvwxyz])?\s*  # parameter
+                    (?P<param>[abcnxyz])?\s*  # parameter
                     (?P<cmp>(==?|!=|<=?|>=?))   # comparison
                 )?\s* # parameter & comparison defaults to "n="
                 (?P<value>-?\d+(\.\d+)?)\s*
@@ -134,15 +134,46 @@ def range_type(value):
 
 # --- Create Parser
 parser = argparse.ArgumentParser(
-    description="Remove gcode before and after given 'from' and 'to' events"
+    description="Remove gcode before and after given 'from' and 'to' conditions.",
+    epilog="Range Format:"
+    """
+    range must be of the format:
+        [condition[,condition...]]:[condition[,condition...]]
+    the first condition(s) are true for the first line included in the cropped area
+    the second set are true for the first line excluded after the cropped area
+
+    Conditions:
+    each condition is of the format:
+        {variable}{operation}{number}
+    or, more specifically:
+        [[{a,b,c,n,x,y,z}]{=,!=,<,<=,>,>=}]{number}
+
+    Condition Variables:
+        n     - file's line number
+        a|b|c - machine's angular axes
+        x|y|z - machine's linear axes
+
+    Example Ranges:
+        "100:200" will crop lines 100-199 (inclusive)
+        "z<=-2:" will isolate everything after the machine crosses z=-2
+        "x>10,y>10:n>=123" starts cropped area where both x and y exceed 10,
+            but only before line 123
+
+    Limitations:
+        Only takes points from start and finish of a gcode operation, so a line
+        through a condition region, or an arc that crosses a barrier will NOT
+        trigger the start or stop of cropping.
+        Probe alignment operations will not change virtual machine's position.
+    """,
+    formatter_class=argparse.RawTextHelpFormatter,
 )
 parser.add_argument(
     'infile', type=argparse.FileType('r'),
-    help="gcode file to normalize",
+    help="gcode file to crop",
 )
 parser.add_argument(
     'range', type=range_type,
-    help="file range to crop, format [first]:[last]",
+    help="file range to crop, format [from]:[to] (details below)",
 )
 
 
