@@ -13,6 +13,12 @@ function lib_ver() {
     popd > /dev/null
 }
 
+function lib_prereq() {
+    pushd .. > /dev/null
+    python -c 'from setup import INSTALL_REQUIRES ; print(" ".join(INSTALL_REQUIRES))'
+    popd > /dev/null
+}
+
 # ============ Local Parameters
 LIB_NAME=pygcode
 LIB_VER=$(lib_ver)
@@ -38,6 +44,7 @@ Arguments:
     Virtual Environments:
         rmenv py#       Remove virtual environment
         remkenv py#     Remove, then create re-create virtual environment
+        envprereq py#   install environment prerequisites (official PyPi)
 
     Deploy:
         deploy test     Upload to PyPi test server
@@ -87,6 +94,13 @@ function remkenv() {
     set_venv_variables $1
     rmvirtualenv ${env_name}
     mkvirtualenv --python=${python_bin} ${env_name}
+}
+
+function envprereq() {
+    set_venv_variables $1
+    workon ${env_name}
+    ${env_pip_bin} install $(lib_prereq)
+    deactivate
 }
 
 function deploy() {
@@ -198,6 +212,7 @@ case "$1" in
     build) build ;;
     rmenv) rmenv $2 ;;
     remkenv) remkenv $2 ;;
+    envprereq) envprereq $2 ;;
     deploy) deploy $2 ;;
     install) install $2 $3 ;;
     test) run_test $2 $3 ;;

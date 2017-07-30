@@ -34,6 +34,7 @@ Arguments:
     Virtual Environments:
         rmenv py#       Remove virtual environment
         remkenv py#     Remove, then create re-create virtual environment
+        envprereq py#   install environment prerequisites (official PyPi)
 
     Deploy:
         deploy test     Upload to PyPi test server
@@ -98,11 +99,13 @@ password=secret
 ```
 # Python 2.x
 ./deploy.sh remkenv py2
+./deploy.sh envprereq py2
 ./deploy.sh install sdist py2
 ./deploy.sh test installed py2
 
 # Python 3.x
 ./deploy.sh remkenv py3
+./deploy.sh envprereq py3
 ./deploy.sh install sdist py3
 ./deploy.sh test installed py3
 ```
