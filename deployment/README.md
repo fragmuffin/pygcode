@@ -134,11 +134,13 @@ password=secret
 ```
 # Python 2.x
 ./deploy.sh remkenv py2
+./deploy.sh envprereq py2
 ./deploy.sh install pypitest py2
 ./deploy.sh test installed py2
 
 # Python 3.x
 ./deploy.sh remkenv py3
+./deploy.sh envprereq py3
 ./deploy.sh install pypitest py3
 ./deploy.sh test installed py3
 ```
