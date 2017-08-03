@@ -1,0 +1,4 @@
+# GCode files (dropped into this folder during development)
+*.gcode
+*.ngc
+*.g

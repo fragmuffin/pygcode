@@ -203,7 +203,7 @@ omit_redundant_modes = utils.omit_redundant_modes
 if args.full:
     omit_redundant_modes = lambda gcode_iter: gcode_iter  # bypass
 
-def write(gcodes, modal_params=tuple(), comment=None):
+def write(gcodes, modal_params=tuple(), comment=None, macro=None):
     """
     Write to output, while enforcing the flags:
         args.singles
@@ -234,6 +234,8 @@ def write(gcodes, modal_params=tuple(), comment=None):
             line_list.append(block_str)
         if comment:
             line_list.append(str(comment))
+        if macro:
+            line_list.append(str(macro))
         line_str = ' '.join(line_list)
         if line_str or not args.rm_blanks:
             print(line_str)
@@ -309,7 +311,7 @@ for line_str in args.infile.readlines():
 
     else:
         if args.full:
-            write(effective_gcodes, comment=line.comment)
+            write(effective_gcodes, comment=line.comment, macro=line.macro)
         else:
-            write(line.block.gcodes, modal_params=line.block.modal_params, comment=line.comment)
+            write(line.block.gcodes, modal_params=line.block.modal_params, comment=line.comment, macro=line.macro)
         machine.process_block(line.block)

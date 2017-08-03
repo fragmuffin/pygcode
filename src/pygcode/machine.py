@@ -1,3 +1,4 @@
+import re
 from copy import copy, deepcopy
 from collections import defaultdict
 
@@ -290,9 +291,12 @@ class Mode(object):
     def __init__(self, set_default=True):
         self.modal_groups = defaultdict(lambda: None)
 
-        # Initialize
+        # Initialize (from multiline self.default_mode)
         if set_default:
-            self.set_mode(*Line(self.default_mode).block.gcodes)
+            gcodes = []
+            for m in re.finditer(r'\s*(?P<line>.*)\s*\n?', self.default_mode):
+                gcodes += Line(m.group('line')).block.gcodes
+            self.set_mode(*gcodes)
 
     def __copy__(self):
         obj = self.__class__(set_default=False)
