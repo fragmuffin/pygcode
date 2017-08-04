@@ -1,0 +1,502 @@
+#!/usr/bin/env python
+
+import curses
+import time
+import six
+
+
+# on-screen elements
+#   Status
+#       - status (Idle, and so on)
+#       - position (as read from status)
+#       - spindle (running cw/ccw, off)
+#       ref: https://github.com/gnea/grbl/wiki/Grbl-v1.1-Interface
+#   Joggging
+#       - numpad style layout (arrows, pgup/dn)
+#       - radio selection of jog rates (<,>)
+#       -
+#
+
+# Layout (80 x 24)
+################################################################################
+
+class Widget(object):
+    pass
+
+
+class Label(Widget):
+    def __init__(self, window, row, col, len, text='', prefix=''):
+        self.window = window
+        self.row = row
+        self.col = col
+        self.len = len
+        self._text = text
+        self.prefix = prefix
+        self.render()
+
+    def render(self):
+        text = self._text + (' ' * max(0, self.len - len(self._text)))
+        self.window.addstr(self.row, self.col, self.prefix + text)
+
+    @property
+    def text(self):
+        return self._text
+
+    @text.setter
+    def text(self, val):
+        self._text = val
+        self.render()
+
+
+class NumberLabel(Widget):
+    def __init__(self, window, row, col, value=0.0):
+        self.window = window
+        self.row = row
+        self.col = col
+        self._value = value
+        self.render()
+
+    def render(self):
+        val_text = "{:>8s}".format("{:.3f}".format(self.value))
+        self.window.addstr(self.row, self.col, val_text)
+
+    @property
+    def value(self):
+        return self._value
+
+    @value.setter
+    def value(self, v):
+        self._value = v
+        self.render()
+
+
+class Button(Widget):
+    def __init__(self, window, label, row, col):
+        self.window = window
+        self.label = label
+        self.row = row
+        self.col = col
+
+        self.render()
+
+    def flash(self):
+        self.render(strong=True)
+        self.window.refresh()
+        time.sleep(0.1)
+        self.render()
+        self.window.refresh()
+
+    def render(self, strong=False):
+        addstr_params = [self.row, self.col, '[{}]'.format(self.label)]
+        if strong:
+            addstr_params.append(curses.A_BOLD)
+        self.window.addstr(*addstr_params)
+
+
+class Banner(Widget):
+    label_col = 4 # <space>text<space>
+
+    def __init__(self, window, label=None, row=0):
+        self.window = window
+        self._label = label
+        self.row = row
+        self.render()
+
+    def render(self):
+        (y, x) = self.window.getmaxyx()
+        label_str = " {} ".format(self._label)
+        self.window.hline(0, 0, curses.ACS_HLINE, x)
+        self.window.addstr(self.row, self.label_col, " {} ".format(self._label))
+
+    @property
+    def label(self):
+        return self._label
+
+    @label.setter
+    def label(self, value):
+        self._label = value
+        self.render()
+
+
+class Status(object):
+    row = 0
+
+    def __init__(self, screen):
+        self.screen = screen
+        (max_y, max_x) = self.screen.getmaxyx()
+        self.window = curses.newwin(5, max_x, self.row, 0)
+        self.banner = Banner(self.window, 'Status: Idle')
+
+        # Print backdrop (to use as template)
+        backdrop = [
+            'Jog: [xxxx.yyy ]       MPos      WPos',
+            '   [Y+]    [Z+]   X |xxxx.yyy |xxxx.yyy |   Spindle:   On (1000rpm)',
+            '[X-]  [X+]        Y |xxxx.yyy |xxxx.yyy |   Coolant:   Off',
+            '   [Y-]    [Z-]   Z |xxxx.yyy |xxxx.yyy |   Feed Rate: 100',
+        ]
+        for (row, line) in enumerate(backdrop):
+           self.window.addstr(row + 1, 0, line[:max_x])
+
+        # Widgets
+        self.widgets = {
+            'X+': Button(self.window, 'X+', 3, 6),
+            'X-': Button(self.window, 'X-', 3, 0),
+            'Y+': Button(self.window, 'Y+', 2, 3),
+            'Y-': Button(self.window, 'Y-', 4, 3),
+            'Z+': Button(self.window, 'Z+', 2, 11),
+            'Z-': Button(self.window, 'Z-', 4, 11),
+            'jog': NumberLabel(self.window, 1, 6, 0.001),
+            'MPosX': NumberLabel(self.window, 2, 21),
+            'MPosY': NumberLabel(self.window, 3, 21),
+            'MPosZ': NumberLabel(self.window, 4, 21),
+            'WPosX': NumberLabel(self.window, 2, 31),
+            'WPosY': NumberLabel(self.window, 3, 31),
+            'WPosZ': NumberLabel(self.window, 4, 31),
+            'spindle': Label(self.window, 2, 44, len=20, prefix='Spindle:   '),
+            'coolant': Label(self.window, 3, 44, len=20, prefix='Coolant:   '),
+            'feed_rate': Label(self.window, 4, 44, len=20, prefix='Feed Rate: '),
+        }
+
+        self.refresh()
+
+    def set_status(self, label):
+        self.banner.label = "Status: {}".format(label)
+        self.refresh()
+
+    def refresh(self):
+        self.window.refresh()
+
+
+# Line types:
+#   gcode:  <'>' if cur> <gcode> > <response>
+#   info:   <'>' if cur> <info text>
+
+class GCodeContent(object):
+    def __init__(self, gcode, sent=False, status=''):
+        self.gcode = gcode
+        self.sent = sent
+        self.status = status
+
+    def to_str(self, width):
+        gcode_w = max(0, width - 23)
+        return ("{gcode:<%i.%is} {sent} {status:<20s}" % (gcode_w, gcode_w)).format(
+            gcode=self.gcode,
+            sent='>' if self.sent else ' ',
+            status=self.status,
+        )
+
+class ConsoleLine(object):
+    def __init__(self, window, content, cur=False):
+        self.window = window
+        self.content = content
+        self._cur = cur
+        self._width = 0
+        self.update_width()
+
+    def render(self, row):
+        line = '> ' if self._cur else '  '
+        if isinstance(self.content, GCodeContent):
+            line += self.content.to_str(max(0, self._width - len(line)))
+        else:
+            line += str(self.content)
+        self.window.addstr(row, 0, line)
+
+    def update_width(self):
+        (_, self._width) = self.window.getmaxyx()
+
+    @property
+    def cur(self):
+        return self._cur
+
+    @cur.setter
+    def cur(self, value):
+        self._cur = value
+
+
+
+class AccordionWindow(object):
+    """
+    A region of the screen that can push those above and below it around.
+    eg: as an active accordion window's content grows, it can push the window
+    below it down, and make it smaller.
+    """
+
+    def __init__(self, screen, title, soft_height=2, min_height=0):
+        self.screen = screen
+        self.title = title
+        self.soft_height = soft_height
+        self.min_height = min_height
+
+        self.focus = False
+        self.lines = []  # list of ConsoleLine instances (first are at the top)
+
+        self.window = None
+        self.banner = None
+
+    def init_window(self, row, height):
+        self.window = curses.newwin(height, self.screen.getmaxyx()[1], row, 0)
+        self.banner = Banner(self.window, self.title)
+
+    def add_line(self, line):
+        self.lines.append(line)
+
+    def move_window(self, row, height):
+        self.window.resize(height, self.screen.getmaxyx()[1])
+        self.window.mvwin(row, 0)
+        self.window.clear()
+        #self.window.box()
+        #self.window.addstr(0, 5, self.title)
+        self.banner.render()
+        self.refresh()
+
+    def __eq__(self, other):
+        return self.title == other.title
+
+    def refresh(self):
+        self.window.refresh()
+
+
+class AccordionWindowManager(object):
+    def __init__(self, screen, windows, header_height, footer_height=0):
+
+        self.screen = screen
+        self.windows = windows
+        self.header_height = header_height
+        self.footer_height = footer_height
+
+        self._focus_index = 0
+
+        self._log = []
+
+        # Initialize accordion window's curses.Window instance
+        cur_row = self.header_height
+        for (i, window) in enumerate(self.windows):
+            window.init_window(cur_row, window.soft_height)
+            window.refresh()
+            cur_row += window.soft_height
+
+    @property
+    def focus(self):
+        return self.windows[self._focus_index]
+
+    @focus.setter
+    def focus(self, value):
+        self._focus_index = self.windows.index(value)
+        self.update_distrobution()
+
+    def update_distrobution(self):
+        # rows available across space
+        rows = self.screen.getmaxyx()[0] - (self.header_height + self.footer_height)
+        min_occupied = sum(w.min_height for w in self.windows)
+        available = rows - min_occupied
+        if rows - min_occupied < 3:
+            pass # TODO: not enough room to respect min_heights
+        # focussed window height
+        #   - self.focus.min_height
+        #   - len(self.focus.lines) + 1
+        #   - available + self.focus.min_height  # max available space
+        extra_alocate = max(0, (len(self.focus.lines) + 1) - self.focus.min_height)
+        height_f = min(available, extra_alocate) + self.focus.min_height
+        available -= height_f - self.focus.min_height
+
+        cur_row = self.header_height
+        for w in self.windows:
+            if w == self.focus:
+                height = height_f
+            else:
+                extra_alocate = max(0, (len(w.lines) + 1) - w.min_height)
+                height = min(available, extra_alocate) + w.min_height
+                available -= height - w.min_height
+
+            w.move_window(cur_row, height)
+            cur_row += height
+
+
+        #rows_available = self.screen.getmaxyx()[0] - (self.header_height + self.footer_height)
+        #
+        #focus_rows_available = rows_available - sum(w.min_height for (i, w) in enumerate(self.windows) if i != self._focus_index)
+        #focus_rows = min(focus_rows_available, max(self.focus.min_height, len(self.focus.lines) + 1))
+        #non_focus_rows_available = rows_available - focus_rows
+        #cur_row = self.header_height
+        #heights = []
+        #for (i, window) in enumerate(self.windows):
+        #    if i == self._focus_index:
+        #        height = focus_rows
+        #    else:
+        #        height = min(non_focus_rows_available, max(window.min_height, len(window.lines) + 1))
+        #        non_focus_rows_available -= height
+        #
+        #    heights.append(height)
+        #    try:
+        #        window.move_window(cur_row, max(1, height))
+        #    except Exception as e:
+        #        raise RuntimeError({
+        #            'rows_available': rows_available,
+        #            'focus_rows_available': focus_rows_available,
+        #            'non_focus_rows_available': non_focus_rows_available,
+        #            'cur_row': cur_row,
+        #            'height': height,
+        #            'window': window,
+        #            'focus': self.focus,
+        #        })
+        #    cur_row += height
+        #self.screen.addstr(0, 0, "heights = %s" % str(heights))
+
+
+class InitWindow(AccordionWindow):
+    pass
+
+class JoggingWindow(AccordionWindow):
+    pass
+
+
+class StreamWindow(AccordionWindow):
+    pass
+
+
+JOGGING_VALUES = [
+    0.001, 0.01, 0.1, 1, 10, 25, 50, 100, 250, 500
+]
+
+def jog_value(cur_val, dindex):
+    try:
+        i = JOGGING_VALUES.index(cur_val)
+    except ValueError:
+        i = 0
+    i = max(0, min(i + dindex, len(JOGGING_VALUES) - 1))
+    return JOGGING_VALUES[i]
+
+def main(screen):
+    # Clear screen
+    screen.clear()
+    screen.refresh()
+
+    status = Status(screen=screen)
+    init = InitWindow(screen=screen, title='GRBL Init: /dev/ttyACM0', min_height=2)
+    jogging = JoggingWindow(screen=screen, title='Jogging', min_height=2)
+    stream = StreamWindow(screen=screen, title='Stream: some_file.ngc', min_height=6)
+
+    #init.lines = list(range(100))
+    #jogging.lines = list(range(100))
+    #stream.lines = list(range(100))
+
+    accordion = AccordionWindowManager(
+        screen=screen,
+        windows=[init, jogging, stream],
+        header_height=status.window.getmaxyx()[0],
+        footer_height=0, # FIXME
+    )
+
+
+    # ----------- Initialize GRBL
+
+
+
+    # ----------- Jogging, user input
+    while True:
+        k = screen.getkey()
+
+        if k in ('q', 'Q'):
+            break
+
+        # Jogging Keys
+        elif k == "KEY_RIGHT":
+            status.widgets['MPosX'].value += status.widgets['jog'].value # FIXME
+            status.widgets['X+'].flash()
+        elif k == "KEY_LEFT":
+            status.widgets['MPosX'].value -= status.widgets['jog'].value # FIXME
+            status.widgets['X-'].flash()
+        elif k == "KEY_UP":
+            status.widgets['MPosY'].value += status.widgets['jog'].value # FIXME
+            status.widgets['Y+'].flash()
+        elif k == "KEY_DOWN":
+            status.widgets['MPosY'].value -= status.widgets['jog'].value # FIXME
+            status.widgets['Y-'].flash()
+        elif k == "KEY_PPAGE":
+            status.widgets['MPosZ'].value += status.widgets['jog'].value # FIXME
+            status.widgets['Z+'].flash()
+        elif k == "KEY_NPAGE":
+            status.widgets['MPosZ'].value -= status.widgets['jog'].value # FIXME
+            status.widgets['Z-'].flash()
+
+        # Jogging Increment (up/down)
+        elif k in '[],.':
+            status.widgets['jog'].value = jog_value(
+                status.widgets['jog'].value,
+                {'[': 1, ',': 1, ']': -1, '.': -1}[k]
+            )
+
+        # Testing
+        elif k == 'a':
+            init.add_line('abc')
+            accordion.update_distrobution()
+        elif k == 'A':
+            accordion.focus = init
+
+        elif k == 's':
+            jogging.add_line('abc')
+            accordion.update_distrobution()
+        elif k == 'S':
+            accordion.focus = jogging
+
+        elif k == 'd':
+            stream.add_line('abc')
+            accordion.update_distrobution()
+        elif k == 'D':
+            accordion.focus = stream
+
+
+        elif k == ' ':
+            # Zero WPos coordinates
+            status.set_status('Zero Work Offsets...') # FIXME
+
+        elif k == '\n':
+            # Jogging complete, begin stream
+            status.set_status('Begin Stream...') # FIXME
+
+        #elif k == 'KEY_RESIZE':
+        #    # dummy keypress on console window resize
+        #    pass # FIXME: re-render everything (?)
+
+        else:
+            status.set_status(k) # FIXME: remove
+        status.refresh()
+
+
+curses.wrapper(main)
+
+
+""" Example Output...
+---- Status: Idle --------------------------------------------------------------
+Jog: [ xx.yyy ]       MPos      WPos
+    [Y+]    [Z+]   X: | xxx.yyy | xxx.yyy |   Spindle:   On (1000rpm)
+ [X-]  [X+]        Y: | xxx.yyy | xxx.yyy |   Coolant:   Off
+    [Y-]    [Z-]   Z: | xxx.yyy | xxx.yyy |   Feed Rate: 100
+---- GRBL Init: /dev/ttyACM0 ---------------------------------------------------
+  Grbl 1.1f ['$' for help]
+  [GC:G0 G54 G17 G21 G90 G94 M5 M9 T0 F0 S0]
+---- Jogging -------------------------------------------------------------------
+  G91                                                   > ok
+  G00 X-1                                               > ok
+  G00 Y20                                               > ok
+> awaiting input ... [space] zero offset, [enter] start stream
+---- Stream: some_file.ngc -----------------------------------------------------
+  G17 G20 G40 G49 G54 G80 G90 G94                       >
+  T1M06                                                 >
+  F47.244                                               >
+  S1000                                                 >
+  G00 Z0.197                                            >
+  M03                                                   >
+  G04 P1                                                >
+  G00X1.0961Y0.0126Z0.1969                              >
+  G01 Z0.0000 F5.9055                                   >
+  F47.2441                                              >
+  X1.0961 Y0.0126 Z0.0000                               >
+  X0.3182 Y0.0126 Z0.0000                               >
+  X0.1454 Y0.0126 Z0.0000                               >
+  X0.0432 Y0.0126 Z0.0000                               >
+  X0.0039 Y0.0126 Z0.0000                               >
+  Z0.1969                                               >
+  G00 X1.0961 Y0.0293 Z0.1969
+
+"""
