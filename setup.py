@@ -28,6 +28,7 @@ CLASSIFIERS = [
 INSTALL_REQUIRES = [
     'argparse',  # Python command-line parsing library
     'euclid3',  # 2D and 3D vector, matrix, quaternion and geometry module.
+    'pyserial', # Python Serial Port Extension
     'six',  # Python 2 and 3 compatibility utilities
 ]
 SCRIPTS = [
