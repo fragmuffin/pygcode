@@ -289,6 +289,10 @@ class AccordionWindow(object):
     def refresh(self):
         self.window.refresh()
 
+    def clear(self):
+        self.lines = []
+        self.window.clear()
+
 
 class AccordionWindowManager(object):
     def __init__(self, screen, windows, header_height, footer_height=0):
@@ -720,7 +724,7 @@ group.add_argument(
     help="number of gcode lines to display ahead of them being sent",
 )
 group.add_argument(
-    '--no-close', dest='no_close',
+    '--keep-open', '-o', dest='no_close',
     action='store_const', const=True, default=False,
     help="if set, window won't close when job is done",
 )
@@ -990,24 +994,6 @@ def curses_wrap(screen):
                     {'[': 1, ',': 1, ']': -1, '.': -1}[k]
                 )
 
-            # Testing
-            elif k == 'a':
-                init.add_line(str(time.time()))
-                #accordion.update_distrobution()
-            elif k == 'A':
-                accordion.focus = init
-            elif k == 's':
-                jogging.add_line(str(time.time()))
-                #accordion.update_distrobution()
-            elif k == 'S':
-                accordion.focus = jogging
-            elif k == 'd':
-                stream.add_line(str(time.time()), sent=True, status='ok')
-                #accordion.update_distrobution()
-            elif k == 'D':
-                accordion.focus = stream
-
-
             elif k == ' ':
                 # Zero WPos coordinates
                 send_gcode(text2gcodes('G10 L20 P1 X0 Y0 Z0')[0], jogging)
@@ -1020,8 +1006,6 @@ def curses_wrap(screen):
                 # dummy keypress on console window resize
                 accordion.update_distrobution()
 
-            else:
-                status.set_status(k) # FIXME: remove
             status.refresh()
 
         # spend 50ms processing received serial lines
@@ -1043,6 +1027,7 @@ def curses_wrap(screen):
 
 
     # ----------------- File Streaming -----------------
+    stream.clear()
     accordion.focus = stream
 
     def _check_resize():
