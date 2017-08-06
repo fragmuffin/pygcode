@@ -1210,8 +1210,8 @@ class GCodeAnalogOutputImmediate(GCodeAnalogOutput):
 # G10 L1            P Q R               Set Tool Table
 # G10 L10           P                   Set Tool Table
 # G10 L11           P                   Set Tool Table
-# G10 L2            P R                 Set Coordinate System
-# G10 L20           P                   Set Coordinate System
+# G10 L2            P R ABCXYZ          Set Coordinate System
+# G10 L20           P ABCXYZ            Set Coordinate System
 # G28, G28.1                            Go/Set Predefined Position
 # G30, G30.1                            Go/Set Predefined Position
 # G53                                   Move in Machine Coordinates
@@ -1242,7 +1242,7 @@ class GCodeToolSetCurrent(GCodeNonModal):
 
 class GCodeSet(GCodeNonModal):
     """G10: Set stuff"""
-    param_letters = set('LPQR')
+    param_letters = set('LPQRABCXYZ')
     word_key = Word('G', 10)
     exec_order = 230
 
