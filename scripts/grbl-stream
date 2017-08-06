@@ -994,16 +994,24 @@ def curses_wrap(screen):
                     {'[': 1, ',': 1, ']': -1, '.': -1}[k]
                 )
 
+            # Zeroing Axes Offsets
             elif k == ' ':
                 # Zero WPos coordinates
                 send_gcode(text2gcodes('G10 L20 P1 X0 Y0 Z0')[0], jogging)
+            elif k in 'xX':
+                send_gcode(text2gcodes('G10 L20 P1 X0')[0], jogging)
+            elif k in 'yY':
+                send_gcode(text2gcodes('G10 L20 P1 Y0')[0], jogging)
+            elif k in 'zZ':
+                send_gcode(text2gcodes('G10 L20 P1 Z0')[0], jogging)
 
+
+            # Jogging complete, begin stream
             elif k == '\n':
-                # Jogging complete, begin stream
                 break
 
+            # dummy keypress on console window resize
             elif k == 'KEY_RESIZE':
-                # dummy keypress on console window resize
                 accordion.update_distrobution()
 
             status.refresh()
