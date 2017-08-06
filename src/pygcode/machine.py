@@ -503,3 +503,16 @@ class Machine(object):
             new_pos = self.pos
             new_pos.update(**coords)  # only change given coordinates
             self.pos = new_pos
+
+
+# Null Machine
+#   A machine that presumes nothing
+class NullMode(Mode):
+    default_mode = ''
+
+class NullState(State):
+    pass  # no change (yet)
+
+class NullMachine(Machine):
+    MODE_CLASS = NullMode
+    STATE_CLASS = NullState

@@ -24,7 +24,10 @@ __copyright__ = "Copyright (c) 2017 {0}".format(__author__)
 # =========================== Imports ===========================
 __all__ = [
     # Machine
-    'Machine', 'Position', 'CoordinateSystem', 'State', 'Mode',
+    'Machine', 'State', 'Mode',
+    'NullMachine', 'NullState', 'NullMode',
+    'Position', 'CoordinateSystem',
+
     # Line
     'Line',
     # Block
@@ -165,8 +168,8 @@ __all__ = [
 # Machine
 from .machine import (
     Position, CoordinateSystem,
-    State, Mode,
-    Machine,
+    Machine, State, Mode,
+    NullMachine, NullState, NullMode,
 )
 
 # Line
