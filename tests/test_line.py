@@ -1,7 +1,3 @@
-import sys
-import os
-import inspect
-
 import unittest
 
 # Add relative pygcode to path
