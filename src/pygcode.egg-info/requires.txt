@@ -1,3 +1,4 @@
 argparse
 euclid3
+pyserial
 six
