@@ -76,6 +76,16 @@ class Block(object):
                 key=k
             ))
 
+    def __len__(self):
+        """
+        Block length = number of identified gcodes (+ 1 if any modal parameters are defined)
+        :return: block length
+        """
+        length = len(self.gcodes)
+        if self.modal_params:
+            length += 1
+        return length
+
     def __bool__(self):
         return bool(self.words)
 

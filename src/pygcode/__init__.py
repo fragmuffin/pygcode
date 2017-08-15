@@ -6,7 +6,7 @@
 #   1.x                 - Development Status :: 5 - Production/Stable
 #   <any above>.y       - developments on that version (pre-release)
 #   <any above>*.dev*   - development release (intended purely to test deployment)
-__version__ = "0.1.1"
+__version__ = "0.1.2"
 
 __title__ = "pygcode"
 __description__ = "Basic g-code parser, interpreter, and encoder library."
@@ -24,7 +24,10 @@ __copyright__ = "Copyright (c) 2017 {0}".format(__author__)
 # =========================== Imports ===========================
 __all__ = [
     # Machine
-    'Machine', 'Position', 'CoordinateSystem', 'State', 'Mode',
+    'Machine', 'State', 'Mode',
+    'NullMachine', 'NullState', 'NullMode',
+    'Position', 'CoordinateSystem',
+
     # Line
     'Line',
     # Block
@@ -165,8 +168,8 @@ __all__ = [
 # Machine
 from .machine import (
     Position, CoordinateSystem,
-    State, Mode,
-    Machine,
+    Machine, State, Mode,
+    NullMachine, NullState, NullMode,
 )
 
 # Line

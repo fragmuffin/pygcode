@@ -1,3 +1,4 @@
+import re
 from copy import copy, deepcopy
 from collections import defaultdict
 
@@ -290,9 +291,12 @@ class Mode(object):
     def __init__(self, set_default=True):
         self.modal_groups = defaultdict(lambda: None)
 
-        # Initialize
+        # Initialize (from multiline self.default_mode)
         if set_default:
-            self.set_mode(*Line(self.default_mode).block.gcodes)
+            gcodes = []
+            for m in re.finditer(r'\s*(?P<line>.*)\s*\n?', self.default_mode):
+                gcodes += Line(m.group('line')).block.gcodes
+            self.set_mode(*gcodes)
 
     def __copy__(self):
         obj = self.__class__(set_default=False)
@@ -499,3 +503,16 @@ class Machine(object):
             new_pos = self.pos
             new_pos.update(**coords)  # only change given coordinates
             self.pos = new_pos
+
+
+# Null Machine
+#   A machine that presumes nothing
+class NullMode(Mode):
+    default_mode = ''
+
+class NullState(State):
+    pass  # no change (yet)
+
+class NullMachine(Machine):
+    MODE_CLASS = NullMode
+    STATE_CLASS = NullState
