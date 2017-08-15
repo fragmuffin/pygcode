@@ -178,9 +178,11 @@ to make sure it's sane
 
 # Deployment in Git
 
-merge deployed branch to `master`
+merge deployed branch to `master`, then...
 
 ```
+git checkout master
+git pull
 git tag ${version} -m "<change description>"
 git push --tags origin master
 ```
