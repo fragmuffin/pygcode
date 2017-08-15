@@ -185,8 +185,15 @@ Switch local to `master` and tag with relevant version
     git tag ${version} -m "<change description>"
     git push --tags origin master
 
-have a look at the [releases page](https://github.com/fragmuffin/pygcode/releases) and it should be there.
+have a look at the
+[releases page](https://github.com/fragmuffin/pygcode/releases)
+and it should be there.
 
 edit release and copy relevant content from [change log](../dist/README.md)
 
 tadaaaaaa!... go to sleep; it's probably late
+
+# Cleanup
+
+    ./deploy.sh rmenv py2
+    ./deploy.sh rmenv py3
