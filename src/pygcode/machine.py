@@ -5,6 +5,7 @@ from collections import defaultdict
 from .gcodes import (
     MODAL_GROUP_MAP, GCode,
     # Modal GCodes
+    GCodeMotion,
     GCodeIncrementalDistanceMode,
     GCodeUseInches, GCodeUseMillimeters,
     # Utilities
@@ -369,6 +370,7 @@ class Machine(object):
     STATE_CLASS = State
 
     axes = set('XYZ')
+    ignore_invalid_modal = False
 
     def __init__(self):
         self.mode = self.MODE_CLASS()
@@ -407,12 +409,15 @@ class Machine(object):
         # TODO: convert coord systems between inches/mm, G20/G21 respectively
 
     def modal_gcode(self, modal_params):
+        """
+        :param ignore_unassigned: if truthy, unassigned parameters will be ignored
+        """
 
         if not modal_params:
             return None
 
         if self.mode.motion is None:
-            unasigned_words = modal_params
+            (modal_gcodes, unasigned_words) = ([], modal_params)
             # forces exception to be raised in next step
         else:
             params = copy(self.mode.motion.params)  # dict
@@ -421,9 +426,11 @@ class Machine(object):
                 [self.mode.motion.word] + list(params.values())
             )
 
-        if unasigned_words:
+        if unasigned_words and (not self.ignore_invalid_modal):
             # Can't process with unknown words on the same line...
-            #   raising: MachineInvalidState
+            # 2 choices:
+            #   - raise MachineInvalidState
+            #   - or remove unassigned parameters from line
             plausable_codes = [w for w in unasigned_words if w.letter in set('GM')]
             if plausable_codes:
                 # words in list are probably valid, but unsupported, G-Codes
@@ -455,6 +462,25 @@ class Machine(object):
         if modal_gcode:
             gcodes.append(modal_gcode)
         return sorted(gcodes)
+
+    def clean_block(self, block):
+        """
+        Remove invalid modal parameters from given block
+        :param block: Block instance to clean
+        """
+        assert isinstance(block, Block), "invalid parameter"
+        if self.mode.motion is None:
+            # no modal motion, modal parameters are all invalid
+            block.modal_params = []
+        elif any(True for g in block.gcodes if g.modal_group == GCodeMotion.modal_group):
+            # block defines new motion, modal motion is irrelevant
+            block.modal_params = []
+        else:
+            (modal_gcodes, unasigned_words) = words2gcodes(
+                [self.mode.motion.word] + list(block.modal_params)
+            )
+            for w in unasigned_words:
+                block.modal_params.remove(w)
 
     def process_gcodes(self, *gcode_list, **kwargs):
         """
@@ -491,19 +517,28 @@ class Machine(object):
         line = Line(block_str)
         self.process_block(line.block)
 
+    # Position conversions (considering offsets)
+    def abs2work(self, abs_pos):
+        assert isinstance(abs_pos, Position), "bad abs_pos type"
+        coord_sys_offset = getattr(self.state.coord_sys, 'offset', Position(axes=self.axes))
+        temp_offset = self.state.offset
+        return (abs_pos - coord_sys_offset) - temp_offset
+
+    def work2abs(self, work_pos):
+        assert isinstance(work_pos, Position), "bad work_pos type"
+        coord_sys_offset = getattr(self.state.coord_sys, 'offset', Position(axes=self.axes))
+        temp_offset = self.state.offset
+        return (work_pos + temp_offset + coord_sys_offset)
+
     @property
     def pos(self):
         """Return current position in current coordinate system"""
-        coord_sys_offset = getattr(self.state.coord_sys, 'offset', Position(axes=self.axes))
-        temp_offset = self.state.offset
-        return (self.abs_pos - coord_sys_offset) - temp_offset
+        return self.abs2work(self.abs_pos)
 
     @pos.setter
     def pos(self, value):
         """Set absolute position given current position and coordinate system"""
-        coord_sys_offset = getattr(self.state.coord_sys, 'offset', Position(axes=self.axes))
-        temp_offset = self.state.offset
-        self.abs_pos = (value + temp_offset) + coord_sys_offset
+        self.abs_pos = self.work2abs(value)
         self._update_abs_range(self.abs_pos)
 
     def _update_abs_range(self, pos):

@@ -6,7 +6,7 @@
 #   1.x                 - Development Status :: 5 - Production/Stable
 #   <any above>.y       - developments on that version (pre-release)
 #   <any above>*.dev*   - development release (intended purely to test deployment)
-__version__ = "0.2.0"
+__version__ = "0.2.1"
 
 __title__ = "pygcode"
 __description__ = "Basic g-code parser, interpreter, and encoder library."
@@ -69,6 +69,7 @@ __all__ = [
     'GCodeCutterCompRight',
     'GCodeCutterRadiusComp',
     'GCodeCutterRadiusCompOff',
+    'GCodeDefinition',
     'GCodeDigitalOutput',
     'GCodeDigitalOutputOff',
     'GCodeDigitalOutputOffSyncd',
@@ -98,6 +99,7 @@ __all__ = [
     'GCodeInverseTimeMode',
     'GCodeLatheDiameterMode',
     'GCodeLatheRadiusMode',
+    'GCodeLineNumber',
     'GCodeLinearMove',
     'GCodeMotion',
     'GCodeMoveInMachineCoords',
@@ -113,6 +115,7 @@ __all__ = [
     'GCodePauseProgramOptional',
     'GCodePlaneSelect',
     'GCodeProgramControl',
+    'GCodeProgramName',
     'GCodeQuadraticSpline',
     'GCodeRapidMove',
     'GCodeResetCoordSystemOffset',
@@ -190,7 +193,6 @@ from .words import (
 # GCode
 from .gcodes import (
     words2gcodes, text2gcodes, split_gcodes,
-
     # $ python -c "from pygcode.gcodes import _gcode_class_infostr as x; print(x(prefix='    # '))"
     #       - GCode:
     #         - GCodeCannedCycle:
@@ -214,6 +216,9 @@ from .gcodes import (
     # G40       - GCodeCutterRadiusCompOff: G40: Cutter Radius Compensation Off
     # G41.1     - GCodeDynamicCutterCompLeft: G41.1: Dynamic Cutter Radius Compensation (left)
     # G42.1     - GCodeDynamicCutterCompRight: G42.1: Dynamic Cutter Radius Compensation (right)
+    #         - GCodeDefinition:
+    #           - GCodeLineNumber: N: Line Number
+    #           - GCodeProgramName: O: Program Name
     #         - GCodeDistanceMode:
     # G90.1     - GCodeAbsoluteArcDistanceMode: G90.1: Absolute Distance Mode for Arc IJK Parameters
     # G90       - GCodeAbsoluteDistanceMode: G90: Absolute Distance Mode
@@ -346,6 +351,7 @@ from .gcodes import (
     GCodeCutterCompRight,
     GCodeCutterRadiusComp,
     GCodeCutterRadiusCompOff,
+    GCodeDefinition,
     GCodeDigitalOutput,
     GCodeDigitalOutputOff,
     GCodeDigitalOutputOffSyncd,
@@ -375,6 +381,7 @@ from .gcodes import (
     GCodeInverseTimeMode,
     GCodeLatheDiameterMode,
     GCodeLatheRadiusMode,
+    GCodeLineNumber,
     GCodeLinearMove,
     GCodeMotion,
     GCodeMoveInMachineCoords,
@@ -390,6 +397,7 @@ from .gcodes import (
     GCodePauseProgramOptional,
     GCodePlaneSelect,
     GCodeProgramControl,
+    GCodeProgramName,
     GCodeQuadraticSpline,
     GCodeRapidMove,
     GCodeResetCoordSystemOffset,
