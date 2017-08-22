@@ -20,7 +20,7 @@ At this time, running `./deploy.sh --help` displays:
 
     This script is to maintain a consistent method of deployment and testing.
 
-    Deployment target: pygcode 0.1.1.dev0
+    Deployment target: pygcode 0.2.0
 
     Arguments:
         Setup:
@@ -31,6 +31,7 @@ At this time, running `./deploy.sh --help` displays:
                         creates both 'sdist' and 'wheel' distrobutions.
 
         Virtual Environments:
+            lsenv           List created virtual environments for this lib
             rmenv py#       Remove virtual environment
             remkenv py#     Remove, then create re-create virtual environment
             envprereq py#   install environment prerequisites (official PyPi)
