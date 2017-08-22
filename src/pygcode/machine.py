@@ -410,20 +410,37 @@ class Machine(object):
 
         if not modal_params:
             return None
+
         if self.mode.motion is None:
-            raise MachineInvalidState("unable to assign modal parameters when no motion mode is set")
-        params = copy(self.mode.motion.params)  # dict
-        params.update(dict((w.letter, w) for w in modal_params))  # override retained modal parameters
-        (modal_gcodes, unasigned_words) = words2gcodes(
-            [self.mode.motion.word] + list(params.values())
-        )
+            unasigned_words = modal_params
+            # forces exception to be raised in next step
+        else:
+            params = copy(self.mode.motion.params)  # dict
+            params.update(dict((w.letter, w) for w in modal_params))  # override retained modal parameters
+            (modal_gcodes, unasigned_words) = words2gcodes(
+                [self.mode.motion.word] + list(params.values())
+            )
+
         if unasigned_words:
-            raise MachineInvalidState("modal parameters '%s' cannot be assigned when in mode: %r" % (
-                ' '.join(str(x) for x in unasigned_words), self.mode
-            ))
+            # Can't process with unknown words on the same line...
+            #   raising: MachineInvalidState
+            plausable_codes = [w for w in unasigned_words if w.letter in set('GM')]
+            if plausable_codes:
+                # words in list are probably valid, but unsupported, G-Codes
+                # raise exception with a more helpfull message
+                raise MachineInvalidState("unsupported gcode(s): '%s' (machine mode: %r)" % (
+                    ' '.join(str(x) for x in unasigned_words), self.mode
+                ))
+            else:
+                # words don't look like gcodes, assuming they're misplaced motion parameters
+                raise MachineInvalidState("modal parameters '%s' cannot be assigned when in mode: %r" % (
+                    ' '.join(str(x) for x in unasigned_words), self.mode
+                ))
+
         if modal_gcodes:
             assert len(modal_gcodes) == 1, "more than 1 modal code found"
             return modal_gcodes[0]
+
         return None
 
     def block_modal_gcodes(self, block):

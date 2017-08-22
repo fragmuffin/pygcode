@@ -42,6 +42,7 @@ Arguments:
                     creates both 'sdist' and 'wheel' distrobutions.
 
     Virtual Environments:
+        lsenv           List created virtual environments for this lib
         rmenv py#       Remove virtual environment
         remkenv py#     Remove, then create re-create virtual environment
         envprereq py#   install environment prerequisites (official PyPi)
@@ -81,6 +82,10 @@ function build() {
     rm -rf build/
     python setup.py sdist bdist_wheel
     popd
+}
+
+function lsenv() {
+    lsvirtualenv -b | grep ^${LIB_NAME}_
 }
 
 function rmenv() {
@@ -210,6 +215,7 @@ case "$1" in
     # Valid Commands
     setup) setup ;;
     build) build ;;
+    lsenv) lsenv ;;
     rmenv) rmenv $2 ;;
     remkenv) remkenv $2 ;;
     envprereq) envprereq $2 ;;
@@ -224,4 +230,4 @@ case "$1" in
         ;;
 esac
 
-echo ./${0##*/} completed successfully
+#echo ./${0##*/} completed successfully

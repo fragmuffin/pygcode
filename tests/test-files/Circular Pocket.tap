@@ -1,0 +1,43 @@
+(Code by Newfangled Wizard, 15/01/2017)
+(Version 2.86)
+(Program Posted for Aluminum )
+G0 G49 G17
+G80 G90 G98  
+G21 (mm)
+(***** Circular Pocket *****)
+(Xcen=0 Ycen=0 Dia=10)
+(CW-climb mill)
+M6 T7(TOOL DIA. 4)
+M03 S4000
+M7 (Mist On)
+G00 G43 H7 Z2
+X0 Y0
+G01 Z-1 F50
+G2 Y0 X1.60 R0.80 F100
+Y0 X-1.6 R1.6
+Y0 X3 R2.3
+Y0 X-3 R3
+X3 Y0 R3
+Y-1.5 X1.5 R1.5
+G00 Z2
+X0 Y0
+G01 Z-2 F50
+G2 Y0 X1.60 R0.80 F100
+Y0 X-1.6 R1.6
+Y0 X3 R2.3
+Y0 X-3 R3
+X3 Y0 R3
+Y-1.5 X1.5 R1.5
+G00 Z2
+X0 Y0
+G01 Z-3 F50
+G2 Y0 X1.60 R0.80 F100
+Y0 X-1.6 R1.6
+Y0 X3 R2.3
+Y0 X-3 R3
+X3 Y0 R3
+Y-1.5 X1.5 R1.5
+G00 Z2
+M5 M9
+M30
+%

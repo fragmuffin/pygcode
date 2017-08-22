@@ -4,10 +4,10 @@ import six
 
 from .exceptions import GCodeBlockFormatError, GCodeWordStrError
 
-REGEX_FLOAT = re.compile(r'^-?(\d+\.?\d*|\.\d+)') # testcase: ..tests.test_words.WordValueMatchTests.test_float
-REGEX_INT = re.compile(r'^-?\d+')
-REGEX_POSITIVEINT = re.compile(r'^\d+')
-REGEX_CODE = re.compile(r'^\d+(\.\d)?') # similar
+REGEX_FLOAT = re.compile(r'^\s*-?(\d+\.?\d*|\.\d+)') # testcase: ..tests.test_words.WordValueMatchTests.test_float
+REGEX_INT = re.compile(r'^\s*-?\d+')
+REGEX_POSITIVEINT = re.compile(r'^\s*\d+')
+REGEX_CODE = re.compile(r'^\s*\d+(\.\d)?') # float, but can't be negative
 
 # Value cleaning functions
 def _clean_codestr(value):

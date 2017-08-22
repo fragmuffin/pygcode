@@ -6,7 +6,7 @@
 #   1.x                 - Development Status :: 5 - Production/Stable
 #   <any above>.y       - developments on that version (pre-release)
 #   <any above>*.dev*   - development release (intended purely to test deployment)
-__version__ = "0.1.2"
+__version__ = "0.2.0"
 
 __title__ = "pygcode"
 __description__ = "Basic g-code parser, interpreter, and encoder library."

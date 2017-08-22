@@ -341,6 +341,44 @@ class GCode(object):
         pass
 
 
+# ======================= Non Operational =======================
+# CODE          PARAMETERS      DESCRIPTION
+# N#                            Define line number (oldschool)
+# O<name>                       Define program name
+
+class GCodeDefinition(GCode):
+    pass
+
+
+class GCodeLineNumber(GCodeDefinition):
+    """N: Line Number"""
+    word_letter = 'N'
+    word_value_configurable = True
+    exec_order = 0
+
+    @classmethod
+    def word_matches(cls, w):
+        return w.letter == 'N'
+
+    @property
+    def number(self):
+        return self.word.value
+
+
+class GCodeProgramName(GCodeDefinition):
+    """O: Program Name"""
+    word_letter = 'O'
+    word_value_configurable = True
+    exec_order = 1
+
+    @classmethod
+    def word_matches(cls, w):
+        return w.letter == 'O'
+
+    @property
+    def name(self):
+        return self.word.value
+
 
 # ======================= Motion =======================
 #   (X Y Z A B C U V W apply to all motions)
@@ -360,7 +398,7 @@ class GCode(object):
 class GCodeMotion(GCode):
     param_letters = set('XYZABCUVW')
     modal_group = MODAL_GROUP_MAP['motion']
-    exec_order = 241
+    exec_order = 242
 
     def _process(self, machine):
         machine.move_to(**self.get_param_dict(letters=machine.axes))
@@ -474,6 +512,18 @@ class GCodeRigidTapping(GCodeMotion):
 class GCodeCancelCannedCycle(GCodeMotion):
     """G80: Cancel Canned Cycle"""
     word_key = Word('G', 80)
+    # Modal Group
+    #   Technically G80 belongs to the motion modal group, however it's often
+    #   expressed in the same line as another motion command.
+    #   This is alowed, but executed just prior to any other motion command
+    #       eg: G00 G80
+    #   will leave the machine in rapid motion mode
+    #   Just running G80 will leave machine with no motion mode.
+    modal_group = None
+    exec_order = 241
+
+    def _process(self, machine):
+        machine.mode.motion = None
 
 
 # ======================= Canned Cycles =======================
@@ -490,7 +540,7 @@ class GCodeCancelCannedCycle(GCodeMotion):
 class GCodeCannedCycle(GCode):
     param_letters = set('XYZUVW')
     modal_group = MODAL_GROUP_MAP['motion']
-    exec_order = 241
+    exec_order = 242
 
     def _process(self, machine):
         moveto_coords = self.get_param_dict(letters=machine.axes)
@@ -1390,7 +1440,7 @@ def word_gcode_class(word, exhaustive=False):
         build_maps()
 
     # quickly eliminate parameters
-    if (not exhaustive) and (word.letter not in 'GMFST'):
+    if (not exhaustive) and (word.letter not in 'GMFSTNO'):
         return None
 
     # by Word Map (faster)
