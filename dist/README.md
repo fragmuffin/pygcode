@@ -10,14 +10,14 @@ Improvements to read more versatile formats
 
 * Tests include a sample-set of gcode files from varying CAM software and authors.
 * `lsenv` in deployment script.
-* added `GCodeLineNumber` and `GCodeProgramName` (in response to #5).
+* added `GCodeLineNumber` and `GCodeProgramName` (in response to [#5](https://github.com/fragmuffin/pygcode/issues/5)).
 * `GCodeCancelCannedCycle` sets machine mode to `None`, and is run first in list of `motion` gcodes.
 * Error message for unsupported gcodes is more helpful / relevant.
 * Optional whitespace in `Word`, (eg: `X-1.2` and `X -1.2` are now both valid)
 
 ### Bugfixes
 
-* Line number in program (#5)
+* [#5](https://github.com/fragmuffin/pygcode/issues/5) Line number in program
 
 
 ## 0.1.2
