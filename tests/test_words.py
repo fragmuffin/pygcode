@@ -54,10 +54,11 @@ class WordValueMatchTests(unittest.TestCase):
                 ('1.2', '1.2'), ('1', '1'), ('200', '200'), ('0092', '0092'),
                 ('1.', '1.'), ('.2', '.2'), ('-1.234', '-1.234'),
                 ('-1.', '-1.'), ('-.289', '-.289'),
+                (' 1.2', ' 1.2'), # leading whitespace
                 # error cases (only detectable in gcode context)
                 ('1.2e3', '1.2'),
             ],
-            negative_list=['.', ' 1.2']
+            negative_list=['.']
         )
 
     def test_code(self):
@@ -67,8 +68,9 @@ class WordValueMatchTests(unittest.TestCase):
                 ('1.2', '1.2'), ('1', '1'), ('10', '10'),
                 ('02', '02'), ('02.3', '02.3'),
                 ('1.', '1'), ('03 ', '03'),
+                (' 2', ' 2'), # leading whitespace
                 # error cases (only detectable in gcode context)
                 ('30.12', '30.1'),
             ],
-            negative_list=['.2', '.', ' 2']
+            negative_list=['.2', '.']
         )

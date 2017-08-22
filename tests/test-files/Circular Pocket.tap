@@ -1,8 +1,8 @@
 (Code by Newfangled Wizard, 15/01/2017)
 (Version 2.86)
 (Program Posted for Aluminum )
-G0 G49 G40.1 G17
-G80 G50 G90 G98  
+G0 G49 G17
+G80 G90 G98  
 G21 (mm)
 (***** Circular Pocket *****)
 (Xcen=0 Ycen=0 Dia=10)

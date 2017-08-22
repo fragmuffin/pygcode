@@ -6,7 +6,6 @@ We can however still deal with these, workarounds shown below
 
 ## Unsupported GCodes
 
-
 When attempting to process unsupported gcode(s) via a `Machine` the following error (or similar) will be raised
 
     MachineInvalidState: unsupported gcode(s): 'P1 M10' (machine mode: <Mode: G00 G17 G90 G90.1 G94 G21 G40 G49 G54 G61 G97 M05 M09 F600 S0 T0>)
