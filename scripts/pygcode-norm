@@ -180,7 +180,7 @@ group.add_argument(
 group.add_argument(
     '--rapid_safety_height', '-rsh', dest="rapid_safety_height",
     type=float, default=None,
-    help="Z value to move to before traversing workpeice (if not set, max "
+    help="Z value to move to before traversing workpiece (if not set, max "
          "value will be attempted).",
 )
 group.add_argument(
