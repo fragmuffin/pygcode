@@ -86,29 +86,29 @@ DEFAULT_CANNED_CODES = ','.join(str(w) for w in sorted(c.word_key for c in _subc
 
 # --- Create Parser
 parser = argparse.ArgumentParser(
-    description="Normalize gcode for machine consistency when using different CAM software"
+    description="Normalize gcode for machine consistency when using different CAM software."
 )
 parser.add_argument(
     'infile', type=argparse.FileType('r'),
-    help="gcode file to normalize",
+    help="Gcode file to normalize.",
 )
 
 parser.add_argument(
     '--singles', '-s', dest='singles',
     action='store_const', const=True, default=False,
-    help="only output one command per gcode line",
+    help="Only output one command per gcode line.",
 )
 parser.add_argument(
     '--full', '-f', dest='full',
     action='store_const', const=True, default=False,
-    help="output full commands, any modal parameters will be acompanied with "
-         "the fully qualified gcode command",
+    help="Output full commands, any modal parameters will be acompanied with "
+         "the fully qualified gcode command.",
 )
 
 # Machine
 parser.add_argument(
     '--machine_mode', '-mm', dest='machine_mode', default=DEFAULT_MACHINE_MODE,
-    help="Machine's startup mode as gcode (default: '%s')" % DEFAULT_MACHINE_MODE,
+    help="Machine's startup mode as gcode (default: '%s')." % DEFAULT_MACHINE_MODE,
 )
 
 # Arc Linearizing
@@ -121,20 +121,20 @@ group = parser.add_argument_group(
 group.add_argument(
     '--arc_linearize', '-al', dest='arc_linearize',
     action='store_const', const=True, default=False,
-    help="convert G2,G3 commands to a series of linear interpolations (G1 codes)",
+    help="Convert G2,G3 commands to a series of linear interpolations (G1 codes).",
 )
 group.add_argument(
     '--arc_lin_method', '-alm', dest='arc_lin_method',
     type=arc_lin_method_type, default=DEFAULT_ARC_LIN_METHOD,
     help="Method of linearizing arcs, i=inner, o=outer, m=mid. List 2 "
          "for <cw>,<ccw>, eg 'i,o'. 'i' is equivalent to 'i,i'. "
-         "(default: '%s')" % DEFAULT_ARC_LIN_METHOD,
+         "(default: '%s')." % DEFAULT_ARC_LIN_METHOD,
     metavar='{i,o,m}[,{i,o,m}]',
 )
 group.add_argument(
     '--arc_precision', '-alp', dest='arc_precision', type=float, default=DEFAULT_PRECISION,
-    help="maximum positional error when creating linear interpolation codes "
-         "(default: %g)" % DEFAULT_PRECISION,
+    help="Maximum positional error when creating linear interpolation codes "
+         "(default: %g)." % DEFAULT_PRECISION,
 )
 
 #parser.add_argument(
@@ -153,17 +153,17 @@ group = parser.add_argument_group(
 group.add_argument(
     '--canned_expand', '-ce', dest='canned_expand',
     action='store_const', const=True, default=False,
-    help="Expand canned cycles into basic linear movements, and pauses",
+    help="Expand canned cycles into basic linear movements, and pauses.",
 )
 group.add_argument(
     '--canned_codes', '-cc', dest='canned_codes',
     type=word_list_type, default=DEFAULT_CANNED_CODES,
-    help="List of canned gcodes to expand, (default is '%s')" % DEFAULT_CANNED_CODES,
+    help="List of canned gcodes to expand, (default is '%s')." % DEFAULT_CANNED_CODES,
 )
 
 # Finalize Code
 group = parser.add_argument_group(
-    "Finalise File",
+    "Final Machine Actions",
     "standardize what's done at the end of a gcode program."
 )
 group.add_argument(
@@ -175,50 +175,50 @@ group.add_argument(
 group.add_argument(
     '--zero_z', '-zz', dest="zero_z",
     action='store_const', const=True, default=False,
-    help="On completion, move down to Z0 (done after zero_xy, if set)",
+    help="On completion, move down to Z0 (done after zero_xy, if set).",
 )
 group.add_argument(
     '--rapid_safety_height', '-rsh', dest="rapid_safety_height",
     type=float, default=None,
     help="Z value to move to before traversing workpeice (if not set, max "
-         "value will be attempted)",
+         "value will be attempted).",
 )
 group.add_argument(
     '--spindle_off', '-so', dest="spindle_off",
     action='store_const', const=True, default=False,
-    help="On completion, turn spindle off",
+    help="On completion, turn spindle off.",
 )
 
 # Removing non-functional content
 group = parser.add_argument_group(
     "Removing Content",
-    "options for the removal of content"
+    "options for the removal of content."
 )
 group.add_argument(
     '--rm_comments', '-rc', dest='rm_comments',
     action='store_const', const=True, default=False,
-    help="remove all comments (non-functional)",
+    help="Remove all comments (non-functional).",
 )
 group.add_argument(
     '--rm_blanks', '-rb', dest='rm_blanks',
     action='store_const', const=True, default=False,
-    help="remove all empty lines (non-functional)",
+    help="Remove all empty lines (non-functional).",
 )
 group.add_argument(
     '--rm_whitespace', '-rws', dest='rm_whitespace',
     action='store_const', const=True, default=False,
-    help="remove all whitespace from gcode blocks (non-functional)",
+    help="Remove all whitespace from gcode blocks (non-functional).",
 )
 group.add_argument(
     '--rm_gcodes', '-rmg', dest='rm_gcodes',
     type=word_list_type, default=[],
-    help="remove gcode (and it's parameters) with words in the given list "
+    help="Remove gcode (and it's parameters) with words in the given list "
          "(eg: M6,G43) (note: only works for modal params with --full)",
 )
 group.add_argument(
     '--rm_invalid_modal', '-rmim', dest='rm_invalid_modal',
     action='store_const', const=True, default=False,
-    help="simply remove everything that isn't understood... not the safest strategy",
+    help="Simply remove everything that isn't understood. Use with caution.",
 )
 
 # --- Parse Arguments
