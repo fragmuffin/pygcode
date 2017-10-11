@@ -18,12 +18,14 @@ for pygcode_lib_type in ('installed_lib', 'relative_lib'):
         from pygcode import Machine, Mode, Line
         from pygcode import GCodeArcMove, GCodeArcMoveCW, GCodeArcMoveCCW
         from pygcode import GCodeCannedCycle
+        from pygcode import GCodeRapidMove, GCodeStopSpindle, GCodeAbsoluteDistanceMode
         from pygcode import split_gcodes
         from pygcode import Comment
         from pygcode.transform import linearize_arc, simplify_canned_cycle
         from pygcode.transform import ArcLinearizeInside, ArcLinearizeOutside, ArcLinearizeMid
         from pygcode.gcodes import _subclasses
         from pygcode import utils
+        from pygcode.exceptions import MachineInvalidState
 
     except ImportError:
         import sys, os, inspect
@@ -65,7 +67,9 @@ def arc_lin_method_type(value):
 
 def word_list_type(value):
     """
-    :return: [Word('G73'), Word('G89'), ... ]
+    Convert csv string list into Word instances.
+    >>> word_list_type("G73,G89") == set([Word('G73'), Word('G89')])
+    :return: set of Word instances
     """
     canned_code_words = set()
     for word_str in re.split(r'\s*,\s*', value):
@@ -82,29 +86,29 @@ DEFAULT_CANNED_CODES = ','.join(str(w) for w in sorted(c.word_key for c in _subc
 
 # --- Create Parser
 parser = argparse.ArgumentParser(
-    description="Normalize gcode for machine consistency when using different CAM software"
+    description="Normalize gcode for machine consistency when using different CAM software."
 )
 parser.add_argument(
     'infile', type=argparse.FileType('r'),
-    help="gcode file to normalize",
+    help="Gcode file to normalize.",
 )
 
 parser.add_argument(
     '--singles', '-s', dest='singles',
     action='store_const', const=True, default=False,
-    help="only output one command per gcode line",
+    help="Only output one command per gcode line.",
 )
 parser.add_argument(
     '--full', '-f', dest='full',
     action='store_const', const=True, default=False,
-    help="output full commands, any modal parameters will be acompanied with "
-         "the fully qualified gcode command",
+    help="Output full commands, any modal parameters will be acompanied with "
+         "the fully qualified gcode command.",
 )
 
 # Machine
 parser.add_argument(
     '--machine_mode', '-mm', dest='machine_mode', default=DEFAULT_MACHINE_MODE,
-    help="Machine's startup mode as gcode (default: '%s')" % DEFAULT_MACHINE_MODE,
+    help="Machine's startup mode as gcode (default: '%s')." % DEFAULT_MACHINE_MODE,
 )
 
 # Arc Linearizing
@@ -117,20 +121,20 @@ group = parser.add_argument_group(
 group.add_argument(
     '--arc_linearize', '-al', dest='arc_linearize',
     action='store_const', const=True, default=False,
-    help="convert G2,G3 commands to a series of linear interpolations (G1 codes)",
+    help="Convert G2,G3 commands to a series of linear interpolations (G1 codes).",
 )
 group.add_argument(
     '--arc_lin_method', '-alm', dest='arc_lin_method',
     type=arc_lin_method_type, default=DEFAULT_ARC_LIN_METHOD,
     help="Method of linearizing arcs, i=inner, o=outer, m=mid. List 2 "
          "for <cw>,<ccw>, eg 'i,o'. 'i' is equivalent to 'i,i'. "
-         "(default: '%s')" % DEFAULT_ARC_LIN_METHOD,
+         "(default: '%s')." % DEFAULT_ARC_LIN_METHOD,
     metavar='{i,o,m}[,{i,o,m}]',
 )
 group.add_argument(
     '--arc_precision', '-alp', dest='arc_precision', type=float, default=DEFAULT_PRECISION,
-    help="maximum positional error when creating linear interpolation codes "
-         "(default: %g)" % DEFAULT_PRECISION,
+    help="Maximum positional error when creating linear interpolation codes "
+         "(default: %g)." % DEFAULT_PRECISION,
 )
 
 #parser.add_argument(
@@ -149,41 +153,73 @@ group = parser.add_argument_group(
 group.add_argument(
     '--canned_expand', '-ce', dest='canned_expand',
     action='store_const', const=True, default=False,
-    help="Expand canned cycles into basic linear movements, and pauses",
+    help="Expand canned cycles into basic linear movements, and pauses.",
 )
 group.add_argument(
     '--canned_codes', '-cc', dest='canned_codes',
     type=word_list_type, default=DEFAULT_CANNED_CODES,
-    help="List of canned gcodes to expand, (default is '%s')" % DEFAULT_CANNED_CODES,
+    help="List of canned gcodes to expand, (default is '%s')." % DEFAULT_CANNED_CODES,
+)
+
+# Finalize Code
+group = parser.add_argument_group(
+    "Final Machine Actions",
+    "standardize what's done at the end of a gcode program."
+)
+group.add_argument(
+    '--zero_xy', '-zxy', dest="zero_xy",
+    action='store_const', const=True, default=False,
+    help="On completion, move straight up to rapid_safety_height, "
+         "then across to X0 Y0.",
+)
+group.add_argument(
+    '--zero_z', '-zz', dest="zero_z",
+    action='store_const', const=True, default=False,
+    help="On completion, move down to Z0 (done after zero_xy, if set).",
+)
+group.add_argument(
+    '--rapid_safety_height', '-rsh', dest="rapid_safety_height",
+    type=float, default=None,
+    help="Z value to move to before traversing workpiece (if not set, max "
+         "value will be attempted).",
+)
+group.add_argument(
+    '--spindle_off', '-so', dest="spindle_off",
+    action='store_const', const=True, default=False,
+    help="On completion, turn spindle off.",
 )
 
 # Removing non-functional content
 group = parser.add_argument_group(
     "Removing Content",
-    "options for the removal of content"
+    "options for the removal of content."
 )
 group.add_argument(
     '--rm_comments', '-rc', dest='rm_comments',
     action='store_const', const=True, default=False,
-    help="remove all comments (non-functional)",
+    help="Remove all comments (non-functional).",
 )
 group.add_argument(
     '--rm_blanks', '-rb', dest='rm_blanks',
     action='store_const', const=True, default=False,
-    help="remove all empty lines (non-functional)",
+    help="Remove all empty lines (non-functional).",
 )
 group.add_argument(
     '--rm_whitespace', '-rws', dest='rm_whitespace',
     action='store_const', const=True, default=False,
-    help="remove all whitespace from gcode blocks (non-functional)",
+    help="Remove all whitespace from gcode blocks (non-functional).",
 )
 group.add_argument(
     '--rm_gcodes', '-rmg', dest='rm_gcodes',
     type=word_list_type, default=[],
-    help="remove gcode (and it's parameters) with words in the given list "
+    help="Remove gcode (and it's parameters) with words in the given list "
          "(eg: M6,G43) (note: only works for modal params with --full)",
 )
-
+group.add_argument(
+    '--rm_invalid_modal', '-rmim', dest='rm_invalid_modal',
+    action='store_const', const=True, default=False,
+    help="Simply remove everything that isn't understood. Use with caution.",
+)
 
 # --- Parse Arguments
 args = parser.parse_args()
@@ -195,6 +231,7 @@ class MyMode(Mode):
 
 class MyMachine(Machine):
     MODE_CLASS = MyMode
+    ignore_invalid_modal = args.rm_invalid_modal
 
 machine = MyMachine()
 
@@ -276,6 +313,9 @@ def split_and_process(gcode_list, gcode_class, comment):
 for line_str in args.infile.readlines():
     line = Line(line_str)
 
+    if args.rm_invalid_modal:
+        machine.clean_block(line.block)
+
     # Effective G-Codes:
     #   fills in missing motion modal gcodes (using machine's current motion mode).
     effective_gcodes = machine.block_modal_gcodes(line.block)
@@ -315,3 +355,23 @@ for line_str in args.infile.readlines():
         else:
             write(line.block.gcodes, modal_params=line.block.modal_params, comment=line.comment, macro=line.macro)
         machine.process_block(line.block)
+
+# Finalizing Motion & Spindle
+if any([args.spindle_off, args.zero_xy, args.zero_z]):
+    write([], comment=Comment("pygcode-norm: finalizing"))
+if any([args.zero_xy, args.zero_z]) and not(isinstance(machine.mode.distance, GCodeAbsoluteDistanceMode)):
+    write([GCodeAbsoluteDistanceMode()])
+if args.spindle_off:
+    write([GCodeStopSpindle()], comment=Comment("spindle off"))
+
+if args.zero_xy:
+    rapid_safety_height = args.rapid_safety_height
+    if rapid_safety_height is None:
+        rapid_safety_height = machine.abs2work(machine.abs_range_max).Z
+
+if args.zero_xy:
+    write([GCodeRapidMove(Z=rapid_safety_height)], comment=Comment("move to safe height"))
+    write([GCodeRapidMove(X=0, Y=0)], comment=Comment("move to planar origin"))
+
+if args.zero_z:
+    write([GCodeRapidMove(Z=0)], comment=Comment("move to zero height"))

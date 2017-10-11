@@ -1,11 +1,12 @@
 Metadata-Version: 1.1
 Name: pygcode
-Version: 0.2.0
+Version: 0.2.1
 Summary: Basic g-code parser, interpreter, and encoder library.
 Home-page: https://github.com/fragmuffin/pygcode
 Author: Peter Boin
 Author-email: peter.boin@gmail.com
 License: GPLv3
+Description-Content-Type: UNKNOWN
 Description: =======
         pygcode
         =======
@@ -33,7 +34,7 @@ Description: =======
         
 Keywords: gcode,cnc,parser,interpreter
 Platform: UNKNOWN
-Classifier: Development Status :: 2 - Pre-Alpha
+Classifier: Development Status :: 3 - Alpha
 Classifier: Intended Audience :: Developers
 Classifier: Intended Audience :: Manufacturing
 Classifier: License :: OSI Approved :: GNU General Public License v3 (GPLv3)
