@@ -36,9 +36,11 @@ Added ability to remove all codes & parameters that cannot be parsed.
 * `Machine.clean_block(<Block>)` removes content from a block that's not parsable (use with caution)
 * `Machine.ignore_invalid_modal` bool class parameter, if set, will continue on merrily while ignoring
   anything not parsable (similarly to `clean_block`)
+* deployment version category validation in `setup.py` (ie: alpha, beta, and so on)
 
 ### Bugfixes
 
+(none)
 
 ----
 ## 0.2.0
