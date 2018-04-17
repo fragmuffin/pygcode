@@ -23,7 +23,7 @@ _this_path = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentfram
 _test_files_dir = os.path.join(_this_path, 'test-files')
 
 class FileParsingTest(unittest.TestCase):
-    filename = os.path.join(_test_files_dir, 'random-sample-1.gcode')
+    filename = os.path.join(_test_files_dir, 'linuxcnc', 'random-sample-1.gcode')
 
     def test_file(self):
         m = Machine()
@@ -33,16 +33,20 @@ class FileParsingTest(unittest.TestCase):
                 m.process_block(line.block)
 
 
+# Get list of test files
+_filetype_regex = re.compile(r'\.(tap|nc|ngc|gcode)$', re.IGNORECASE)
+_test_files = set()
+for dialect in ['linuxcnc']:  # FIXME: get list of all dialects
+    for filename in glob.glob(os.path.join(_test_files_dir, dialect, '*')):
+        if _filetype_regex.search(filename):
+            _test_files.add(filename)
+
+# remove default test file:
+_test_files.discard(FileParsingTest.filename)
 
 # Create inheriting class for each gcode file in the _test_files_dir directory
-_filetype_regex = re.compile(r'^.*\.(tap|nc|ngc|gcode)$', re.IGNORECASE)
-_test_files = [f for f in glob.glob(os.path.join(_test_files_dir, '*')) if _filetype_regex.search(f)]
-
 for (i, filename) in enumerate(sorted(_test_files)):
     basename = os.path.basename(filename)
-    if basename == os.path.basename(FileParsingTest.filename):
-        break  # already defined as a test
-
     class_name = "FileParsingTest_" + re.sub(r"""[^a-zA-Z0-9]""", '_', basename)
     globals()[class_name] = type(class_name, (FileParsingTest,), {
         'filename': filename,
