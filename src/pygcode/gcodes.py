@@ -1440,6 +1440,7 @@ def word_gcode_class(word, exhaustive=False):
         build_maps()
 
     # quickly eliminate parameters
+    # TODO: get valid world letters from dialect
     if (not exhaustive) and (word.letter not in 'GMFSTNO'):
         return None
 
@@ -1457,9 +1458,16 @@ def word_gcode_class(word, exhaustive=False):
 
 def words2gcodes(words):
     """
-    Group words into g-codes (includes both G & M codes)
-    :param words: list of Word instances
+    Group words into GCodes
+    :param words: list of :class:`Word <pygcode.words.Word>` instances
+    :type words: :class:`list`
     :return: tuple([<GCode>, <GCode>, ...], list(<unused words>))
+    :rtype: :class:`tuple`
+
+    Returns a 2-tuple:
+
+    - list of :class:`GCode <pygocde.gcodes.GCode>` instances
+    -
     """
 
     gcodes = []
@@ -1536,8 +1544,45 @@ def split_gcodes(gcode_list, splitter_class, sort_list=True):
     """
     Splits a list of GCode instances into 3, the center list containing the splitter_class gcode
     :param gcode_list: list of GCode instances to split
+    :type gcode_list: :class:`list`
     :param splitter_class: class of gcode identifying split from left to right
+    :type splitter_class: :class:`GCode`
+    :param sort_list: if ``False``, gcodes list is not sorted before processing
+    :type sort_list: :class:`bool`
     :return: list of: [[<gcodes before splitter>], [<splitter instance>], [<gcodes after splitter>]]
+    :rtype: :class:`list`
+
+    Returns a list with 3 elements
+
+    - gcodes before splitter (may be empty)
+    - splitter instance (list with a single element)
+    - gcodes after splitter (may be empty)
+
+    For example:
+
+    .. doctest::
+
+        >>> from pygcode import Block
+        >>> from pygcode.gcodes import split_gcodes, GCodeCoolantOff
+        >>> block = Block('G1 X1 Y2 M9 F100 S200')
+
+        >>> (a, b, c) = split_gcodes(block.gcodes, GCodeCoolantOff)
+        >>> a
+        [<GCodeFeedRate: F100>, <GCodeSpindleSpeed: S200>]
+        >>> b
+        [<GCodeCoolantOff: M09>]
+        >>> c
+        [<GCodeLinearMove: G01{X1, Y2}>]
+
+        >>> # Line with the M09 code removed
+        >>> a + c
+        [<GCodeFeedRate: F100>, <GCodeSpindleSpeed: S200>, <GCodeLinearMove: G01{X1, Y2}>]
+
+    .. note::
+
+        The above example is sorted in execution order by default, set
+        ``sort_list=False`` to override this behaviour.
+
     """
     # for example:
     #     g_list = sorted([g1, g2, g3, g4])

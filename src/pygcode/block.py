@@ -8,8 +8,16 @@ class Block(object):
     def __init__(self, text=None, verify=True):
         """
         Block Constructor
-        :param A-Z: gcode parameter values
-        :param comment: comment text
+        :param text: gcode line content (including comments) as string
+        :type text: :class:`str`
+        :param verify: verify given codes (modal & non-modal are not repeated)
+        :type verify: :class:`bool`
+
+        .. note::
+
+            State & machine specific codes cannot be verified at this point;
+            they must be processed by a virtual machine to be fully verified.
+
         """
 
         self._raw_text = None
