@@ -1,11 +1,13 @@
 import re
-from .words import text2words, WORD_MAP
+from .words import text2words
 from .gcodes import words2gcodes
+from . import dialects
+
 
 class Block(object):
     """GCode block (effectively any gcode file line that defines any <word><value>)"""
 
-    def __init__(self, text=None, verify=True):
+    def __init__(self, text=None, dialect=None, verify=True):
         """
         Block Constructor
         :param text: gcode line content (including comments) as string
@@ -25,6 +27,12 @@ class Block(object):
         self.words = []
         self.gcodes = []
         self.modal_params = []
+
+        if dialect is None:
+            dialect = dialects.get_default()
+        self.dialect = dialect
+
+        self._word_map = getattr(getattr(dialects, dialect), 'WORD_MAP')
 
         # clean up block string
         if text:
@@ -71,7 +79,7 @@ class Block(object):
                 modal_groups.add(gc.modal_group)
 
     def __getattr__(self, k):
-        if k in WORD_MAP:
+        if k in self._word_map:
             for w in self.words:
                 if w.letter == k:
                     return w

@@ -34,6 +34,7 @@ __all__ = [
     'Block',
     # Comment
     'Comment', 'split_line',
+
     # Word
     'Word', 'text2words', 'str2word', 'words2dict',
 

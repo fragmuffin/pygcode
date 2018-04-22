@@ -6,6 +6,7 @@ add_pygcode_to_path()
 
 # Units under test
 from pygcode import words
+from pygcode import dialects
 
 
 class WordIterTests(unittest.TestCase):
@@ -33,8 +34,7 @@ class WordIterTests(unittest.TestCase):
         self.assertEqual([w[5].letter, w[5].value], ['F', 70])
 
 
-class WordValueMatchTests(unittest.TestCase):
-
+class WordValueMatchTest(unittest.TestCase):
     def regex_assertions(self, regex, positive_list, negative_list):
         # Assert all elements of positive_list match regex
         for (value_str, expected_match) in positive_list:
@@ -47,9 +47,11 @@ class WordValueMatchTests(unittest.TestCase):
             match = regex.search(value_str)
             self.assertIsNone(match, "matched for '%s'" % value_str)
 
+
+class WordTests_LinuxCNC(WordValueMatchTest):
     def test_float(self):
         self.regex_assertions(
-            regex=words.REGEX_FLOAT,
+            regex=dialects.linuxcnc.REGEX_FLOAT,
             positive_list=[
                 ('1.2', '1.2'), ('1', '1'), ('200', '200'), ('0092', '0092'),
                 ('1.', '1.'), ('.2', '.2'), ('-1.234', '-1.234'),
@@ -63,7 +65,7 @@ class WordValueMatchTests(unittest.TestCase):
 
     def test_code(self):
         self.regex_assertions(
-            regex=words.REGEX_CODE,
+            regex=dialects.linuxcnc.REGEX_CODE,
             positive_list=[
                 ('1.2', '1.2'), ('1', '1'), ('10', '10'),
                 ('02', '02'), ('02.3', '02.3'),
