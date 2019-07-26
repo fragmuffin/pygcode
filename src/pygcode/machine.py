@@ -1,6 +1,9 @@
 import re
 from copy import copy, deepcopy
 from collections import defaultdict
+import logging
+
+log = logging.getLogger(__name__)
 
 from .gcodes import (
     MODAL_GROUP_MAP, GCode,
@@ -407,6 +410,10 @@ class Machine(object):
             self.state.cur_coord_sys = coord_sys_mode.coord_system_id
 
         # TODO: convert coord systems between inches/mm, G20/G21 respectively
+        # NOTE : on at least a Haas -- this cannot be changed when running a
+        # program -- the G20 / G21 codes don't actually change units, but if
+        # a G20 / G21 appears in the code and the machine settings do not match
+        # an error will be thrown.
 
     def modal_gcode(self, modal_params):
         """

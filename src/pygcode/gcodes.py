@@ -522,7 +522,7 @@ class GCodeCancelCannedCycle(GCodeMotion):
     modal_group = None
     exec_order = 241
 
-    def _process(self, machine):
+    def WRONG_process(self, machine):
         machine.mode.motion = None
 
 
