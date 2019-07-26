@@ -1,9 +1,6 @@
 import re
 from copy import copy, deepcopy
 from collections import defaultdict
-import logging
-
-log = logging.getLogger(__name__)
 
 from .gcodes import (
     MODAL_GROUP_MAP, GCode,
