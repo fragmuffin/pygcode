@@ -30,7 +30,12 @@ def _clean_codestr(value):
     return "%g" % value
 
 CLEAN_NONE = lambda v: v
-CLEAN_FLOAT = lambda v: "{0:g}".format(round(v, 3))
+
+def CLEAN_FLOAT(v):
+    fstr = "{0:g}".format(round(v, 3))
+    if '.' not in fstr:
+        return fstr + '.'
+    return fstr
 CLEAN_CODE = _clean_codestr
 CLEAN_INT = lambda v: "%g" % v
 
