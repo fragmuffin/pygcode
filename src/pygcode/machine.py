@@ -271,6 +271,14 @@ class Mode(object):
     #       > $G
     #       > [GC:G0 G54 G17 G21 G90 G94 M5 M9 T0 F0 S0]
     #   ref: https://github.com/gnea/grbl/wiki/Grbl-v1.1-Commands#g---view-gcode-parser-state
+    # NOTE : there is no default mode for some machines (eg haas), so if the
+    # previous program leaves the machine in G91 it will remain in G91 at the
+    # beginning of the next program.. it is good practice to start programs
+    # with a few "safe startup" blocks for example
+    # G21       ( metric )
+    # G0 G17 G40 G49 G80 G90
+    # G54       ( set wcs )
+
     default_mode = '''
         G0      (movement: rapid)
         G17     (plane_selection: X/Y plane)

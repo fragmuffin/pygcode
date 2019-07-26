@@ -35,7 +35,7 @@ CLEAN_NONE = lambda v: v
 def CLEAN_NUMBER(v):
     if isinstance(v, int):
         return str(v)
-    fstr = "{0:g}".format(round(v, 3))
+    fstr = "{0:g}".format(round(v, 3))  # FIXME bad practice for inches
     if '.' not in fstr:
         return fstr + '.'
     return fstr

@@ -42,12 +42,12 @@ from .exceptions import GCodeParameterError, GCodeWordStrError
 #
 #   There are 15 groups:
 #       ref: http://linuxcnc.org/docs/html/gcode/overview.html#_modal_groups
+#       ref: https://www.haascnc.com/content/dam/haascnc/en/service/manual/operator/english---mill-ngc---operator's-manual---2017.pdf
 #
 #                 Table 5. G-Code Modal Groups
 #       MODAL GROUP MEANING                     MEMBER WORDS
 #       Non-modal codes (Group 0)               G4, G10 G28, G30, G53, G92, G92.1, G92.2, G92.3,
-#       Motion (Group 1)                        G0, G1, G2, G3, G33, G38.x, G73, G76, G80, G81
-#                                               G82, G83, G84, G85, G86, G87, G88,G89
+#       Motion (Group 1)                        G0, G1, G2, G3, G33, G38.x,
 #       Plane selection (Group 2)               G17, G18, G19, G17.1, G18.1, G19.1
 #       Distance Mode (Group 3)                 G90, G91
 #       Arc IJK Distance Mode (Group 4)         G90.1, G91.1
@@ -55,6 +55,8 @@ from .exceptions import GCodeParameterError, GCodeWordStrError
 #       Units (Group 6)                         G20, G21
 #       Cutter Diameter Compensation (Group 7)  G40, G41, G42, G41.1, G42.1
 #       Tool Length Offset (Group 8)            G43, G43.1, G49
+#       Can Cycles (Group 9)                    G73, G76, G80, G81, G82, G83,
+#                                               G84, G85, G86, G87, G88, G89
 #       Canned Cycles Return Mode (Group 10)    G98, G99
 #       Coordinate System (Group 12)            G54, G55, G56, G57, G58, G59,
 #                                               G59.1, G59.2, G59.3
@@ -81,6 +83,7 @@ MODAL_GROUP_MAP = {
     'units': 6,
     'cutter_diameter_comp': 7,
     'tool_length_offset': 8,
+    'canned_cycle': 9,
     'canned_cycles_return': 10,
     'coordinate_system': 12,
     'control_mode': 13,
@@ -393,7 +396,6 @@ class GCodeProgramName(GCodeDefinition):
 # G38.2 - G38.5                 Straight Probe
 # G33           K               Spindle Synchronized Motion
 # G33.1         K               Rigid Tapping
-# G80                           Cancel Canned Cycle
 
 class GCodeMotion(GCode):
     param_letters = set('XYZABCUVW')
@@ -509,21 +511,6 @@ class GCodeRigidTapping(GCodeMotion):
     word_key = Word('G', 33.1)
 
 
-class GCodeCancelCannedCycle(GCodeMotion):
-    """G80: Cancel Canned Cycle"""
-    word_key = Word('G', 80)
-    # Modal Group
-    #   Technically G80 belongs to the motion modal group, however it's often
-    #   expressed in the same line as another motion command.
-    #   This is alowed, but executed just prior to any other motion command
-    #       eg: G00 G80
-    #   will leave the machine in rapid motion mode
-    #   Just running G80 will leave machine with no motion mode.
-    modal_group = None
-    exec_order = 241
-
-    def WRONG_process(self, machine):
-        machine.mode.motion = None
 
 
 # ======================= Canned Cycles =======================
@@ -536,10 +523,11 @@ class GCodeCancelCannedCycle(GCodeMotion):
 # G85               R L (P)             Boring Cycle, Feed Out
 # G89               R L (P)             Boring Cycle, Dwell, Feed Out
 # G76               P Z I J R K Q H L E Threading Cycle
+# G80                                   Cancel Canned Cycle
 
 class GCodeCannedCycle(GCode):
     param_letters = set('XYZUVW')
-    modal_group = MODAL_GROUP_MAP['motion']
+    modal_group = MODAL_GROUP_MAP['canned_cycle']
     exec_order = 242
 
     def _process(self, machine):
@@ -554,11 +542,12 @@ class GCodeCannedCycle(GCode):
             moveto_coords.pop(machine.mode.plane_selection.normal_axis, None)
 
         # Process action 'L' times
-        loop_count = self.L
-        if (loop_count is None) or (loop_count <= 0):
-            loop_count = 1
-        for i in range(loop_count):
-            machine.move_to(**moveto_coords)
+        if hasattr(self, 'L'):
+            loop_count = self.L
+            if (loop_count is None) or (loop_count <= 0):
+                loop_count = 1
+            for i in range(loop_count):
+                machine.move_to(**moveto_coords)
 
 
 class GCodeDrillingCycle(GCodeCannedCycle):
@@ -577,7 +566,7 @@ class GCodeDrillingCycleDwell(GCodeCannedCycle):
 
 class GCodeDrillingCyclePeck(GCodeCannedCycle):
     """G83: Drilling Cycle, Peck"""
-    param_letters = GCodeCannedCycle.param_letters | set('RLQ')
+    param_letters = GCodeCannedCycle.param_letters | set('RLQ') | set('IJK')
     word_key = Word('G', 83)
     modal_param_letters = GCodeCannedCycle.param_letters | set('RQ')
 
@@ -607,6 +596,19 @@ class GCodeThreadingCycle(GCodeCannedCycle):
     """G76: Threading Cycle"""
     param_letters = GCodeCannedCycle.param_letters | set('PZIJRKQHLE')
     word_key = Word('G', 76)
+
+class GCodeCancelCannedCycle(GCodeCannedCycle):
+    """ G80: Cancel Canned Cycle """
+    param_letters = set()
+    word_key = Word('G', 80)
+    # Modal Group
+    #   Technically G80 belongs to the motion modal group, however it's often
+    #   expressed in the same line as another motion command.
+    #   This is alowed, but executed just prior to any other motion command
+    #       eg: G00 G80
+    #   will leave the machine in rapid motion mode
+    #   Just running G80 will leave machine with no motion mode.
+    exec_order = 241
 
 
 # ======================= Distance Mode =======================
