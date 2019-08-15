@@ -7,3 +7,5 @@
 
 # build
 build/*
+src/pygcode.egg-info/*
+dist/pygcode-*.egg

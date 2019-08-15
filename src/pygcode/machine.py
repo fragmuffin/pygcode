@@ -268,6 +268,14 @@ class Mode(object):
     #       > $G
     #       > [GC:G0 G54 G17 G21 G90 G94 M5 M9 T0 F0 S0]
     #   ref: https://github.com/gnea/grbl/wiki/Grbl-v1.1-Commands#g---view-gcode-parser-state
+    # NOTE : there is no default mode for some machines (eg haas), so if the
+    # previous program leaves the machine in G91 it will remain in G91 at the
+    # beginning of the next program.. it is good practice to start programs
+    # with a few "safe startup" blocks for example
+    # G21       ( metric )
+    # G0 G17 G40 G49 G80 G90
+    # G54       ( set wcs )
+
     default_mode = '''
         G0      (movement: rapid)
         G17     (plane_selection: X/Y plane)
@@ -407,6 +415,10 @@ class Machine(object):
             self.state.cur_coord_sys = coord_sys_mode.coord_system_id
 
         # TODO: convert coord systems between inches/mm, G20/G21 respectively
+        # NOTE : on at least a Haas -- this cannot be changed when running a
+        # program -- the G20 / G21 codes don't actually change units, but if
+        # a G20 / G21 appears in the code and the machine settings do not match
+        # an error will be thrown.
 
     def modal_gcode(self, modal_params):
         """
