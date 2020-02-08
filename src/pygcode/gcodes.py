@@ -1265,7 +1265,7 @@ class GCodeAnalogOutputImmediate(GCodeAnalogOutput):
 # G28, G28.1                            Go/Set Predefined Position
 # G30, G30.1                            Go/Set Predefined Position
 # G53                                   Move in Machine Coordinates
-# G92                                   Coordinate System Offset
+# G92               ABCXYZUVW           Coordinate System Offset
 # G92.1, G92.2                          Reset G92 Offsets
 # G92.3                                 Restore G92 Offsets
 # M101 - M199       P Q                 User Defined Commands
@@ -1323,6 +1323,7 @@ class GCodeMoveInMachineCoords(GCodeNonModal):
 
 class GCodeCoordSystemOffset(GCodeNonModal):
     """G92: Coordinate System Offset"""
+    param_letters = set('XYZABCUVW')
     word_key = Word('G', 92)
     exec_order = 230
 
