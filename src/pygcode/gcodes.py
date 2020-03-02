@@ -210,6 +210,14 @@ class GCode(object):
             word_str=word_str,
             parameters=param_str,
         )
+    
+    def __hash__(self):
+        """Hash representation of the gcode, for set and dictionary usage"""
+        try:
+            return hash(self.word_key)
+        except TypeError:
+            return hash(self.word_letter) # May also want to retrieve additional value info
+        
 
     def _default_word(self):
         if self.default_word:
