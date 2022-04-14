@@ -32,7 +32,7 @@ from .exceptions import GCodeParameterError, GCodeWordStrError
 #
 #   Modal Groups:
 #       Only one mode of each modal group can be active. That is to say, a
-#       modal g-code can only change the sate of a previously set mode if
+#       modal g-code can only change the state of a previously set mode if
 #       they're in the same group.
 #       For example:
 #           G20 (mm), and G21 (inches) are in group 6
