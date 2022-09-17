@@ -15,24 +15,31 @@ TODO: verify above info before publishing
 import re
 
 from .utils import WordType
+from .. import words
+from .. import config
 
 # ======================== WORDS ========================
 
-REGEX_FLOAT = re.compile(r'^\s*-?(\d+\.?\d*|\.\d+)') # testcase: ..tests.test_words.WordValueMatchTests.test_float
+REGEX_FLOAT = re.compile(r'^\s*-?(\d+\.?\d*|\.\d+)')  # testcase: ..tests.test_words.WordValueMatchTests.test_float
 REGEX_INT = re.compile(r'^\s*-?\d+')
 REGEX_POSITIVEINT = re.compile(r'^\s*\d+')
-REGEX_CODE = re.compile(r'^\s*\d+(\.\d)?') # float, but can't be negative
+REGEX_CODE = re.compile(r'^\s*\d+(\.\d)?')  # float, but can't be negative
 
 # Value cleaning functions
 def _clean_codestr(value):
     if value < 10:
-        return "0%g" % value
-    return "%g" % value
+        return "0%f" % value
+    return "%f" % value
+
+def _clean_x_y(value):
+    val = "{0:." + str(config.float_precision) + "}"
+    return val.format(value)
 
 CLEAN_NONE = lambda v: v
-CLEAN_FLOAT = lambda v: "{0:g}".format(round(v, 3))
+CLEAN_FLOAT = lambda v: "{0:.3}".format(v)
+CLEAN_X_Y_FLOAT = _clean_x_y
 CLEAN_CODE = _clean_codestr
-CLEAN_INT = lambda v: "%g" % v
+CLEAN_INT = lambda v: "%d" % v
 
 WORD_MAP = {
     # Descriptions copied from wikipedia:
@@ -133,13 +140,13 @@ WORD_MAP = {
     # Program Name
     'O': WordType(
         cls=str,
-        value_regex=re.compile(r'^.+$'), # all the way to the end
+        value_regex=re.compile(r'^.+$'),  # all the way to the end
         description="Program name",
         clean_value=CLEAN_NONE,
     ),
     # Parameter (arbitrary parameter)
     'P': WordType(
-        cls=float, # parameter is often an integer, but can be a float
+        cls=float,  # parameter is often an integer, but can be a float
         value_regex=REGEX_FLOAT,
         description="Serves as parameter address for various G and M codes",
         clean_value=CLEAN_FLOAT,
@@ -168,7 +175,7 @@ WORD_MAP = {
     # Tool Selecton
     'T': WordType(
         cls=str,
-        value_regex=REGEX_POSITIVEINT, # tool string may have leading '0's, but is effectively an index (integer)
+        value_regex=REGEX_POSITIVEINT,  # tool string may have leading '0's, but is effectively an index (integer)
         description="Tool selection",
         clean_value=CLEAN_NONE,
     ),
@@ -196,13 +203,13 @@ WORD_MAP = {
         cls=float,
         value_regex=REGEX_FLOAT,
         description="Absolute or incremental position of X axis.",
-        clean_value=CLEAN_FLOAT,
+        clean_value=CLEAN_X_Y_FLOAT,
     ),
     'Y': WordType(
         cls=float,
         value_regex=REGEX_FLOAT,
         description="Absolute or incremental position of Y axis.",
-        clean_value=CLEAN_FLOAT,
+        clean_value=CLEAN_X_Y_FLOAT,
     ),
     'Z': WordType(
         cls=float,
@@ -211,6 +218,5 @@ WORD_MAP = {
         clean_value=CLEAN_FLOAT,
     ),
 }
-
 
 # ======================== G-CODES ========================

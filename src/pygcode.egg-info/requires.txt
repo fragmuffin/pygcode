@@ -1,3 +1,3 @@
-argparse
-euclid3
-six
+argparse==1.4.0
+euclid3==0.01
+six==1.16.0

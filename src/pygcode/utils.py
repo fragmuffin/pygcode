@@ -91,3 +91,7 @@ def omit_redundant_modes(gcode_iter):
 
         m.process_gcodes(g)
         yield g
+
+
+def validate_float_precision_input(fp_input):
+    return True if 0 <= fp_input <= 6 else False

@@ -11,14 +11,14 @@ from pygcode import dialects
 
 class WordIterTests(unittest.TestCase):
     def test_iter1(self):
-        block_str = 'G01 Z-0.5 F100'
-        w = list(words.text2words(block_str))
+        block_str = 'G01 Z-0.5 Y0.511111423 F100'
+        w = list(words.text2words(block_str, x_y_truncation=6))
         # word length
-        self.assertEqual(len(w), 3)
-        # word values
+        self.assertEqual(len(w), 4)
         self.assertEqual(w[0], words.Word('G', 1))
-        self.assertEqual(w[1], words.Word('Z', -0.5))
-        self.assertEqual(w[2], words.Word('F', 100))
+        self.assertEqual(w[1], words.Word('Z', -0.5, x_y_truncation=6))
+        self.assertEqual(str(w[2]), str(words.Word('Y', 0.51111142342, x_y_truncation=6)))
+        self.assertEqual(w[3], words.Word('F', 100))
 
     def test_iter2(self):
         block_str = 'G02 X10.75 Y47.44 I-0.11 J-1.26 F70'

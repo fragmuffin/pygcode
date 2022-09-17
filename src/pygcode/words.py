@@ -2,8 +2,10 @@ import re
 import itertools
 import six
 
-from . import dialects
+from . import dialects, config
 from .exceptions import GCodeBlockFormatError, GCodeWordStrError
+from .utils import validate_float_precision_input
+
 
 class Word(object):
     def __init__(self, *args, **kwargs):
@@ -22,10 +24,18 @@ class Word(object):
         # Parameters (keyword)
         dialect = kwargs.pop('dialect', dialects.get_default())
 
+        if dialect == dialects.get_default():
+            user_input_fp = kwargs.pop('x_y_truncation', config.DEFAULT_FLOAT_PRECISION)
+            if validate_float_precision_input(user_input_fp):
+                config.float_precision = user_input_fp
+            else:
+                raise ValueError(config.fp_exception)
+
         letter = letter.upper()
 
         self._word_map = getattr(getattr(dialects, dialect), 'WORD_MAP')
         self._value_class = self._word_map[letter].cls
+        self._regex_pattern = self._word_map[letter].value_regex
         self._value_clean = self._word_map[letter].clean_value
 
         self.letter = letter
@@ -72,7 +82,11 @@ class Word(object):
     @property
     def value_str(self):
         """Clean string representation, for consistent file output"""
-        return self._value_clean(self.value)
+        prog = self._regex_pattern
+        parsed_value = prog.search(str(self.value))
+        grouped_value = parsed_value.group()
+        correct_parsed_value = self._value_class(grouped_value)
+        return self._value_clean(correct_parsed_value)
 
     # Value Properties
     @property
@@ -88,13 +102,18 @@ class Word(object):
         return "%s: %s" % (self.letter, self._word_map[self.letter].description)
 
 
-def text2words(block_text, dialect=None):
+def text2words(block_text, dialect=None, x_y_truncation=config.DEFAULT_FLOAT_PRECISION):
     """
     Iterate through block text yielding Word instances
     :param block_text: text for given block with comments removed
     """
     if dialect is None:
         dialect = dialects.get_default()
+        if validate_float_precision_input(x_y_truncation):
+            config.float_precision = x_y_truncation
+        else:
+            raise ValueError(config.fp_exception)
+
     word_map = getattr(getattr(dialects, dialect), 'WORD_MAP')
 
     next_word = re.compile(r'^.*?(?P<letter>[%s])' % ''.join(word_map.keys()), re.IGNORECASE)
@@ -114,7 +133,7 @@ def text2words(block_text, dialect=None):
                 raise GCodeWordStrError("word '%s' value invalid" % letter)
             value = value_match.group() # matched text
 
-            yield Word(letter, value)
+            yield Word(letter, value, x_y_truncation=x_y_truncation)
 
             index += value_match.end() # propogate index to end of value
         else:
