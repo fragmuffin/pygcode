@@ -108,7 +108,7 @@ if __name__ == "__main__":
         description=find_meta("description"),
         license=find_meta("license"),
         url=find_meta("url"),
-        version=version,
+        version=0.2.2,
         author=find_meta("author"),
         author_email=find_meta("email"),
         maintainer=find_meta("author"),
